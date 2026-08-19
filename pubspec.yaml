@@ -1,0 +1,98 @@
+name: glickr
+description: "Manage photo albums stored in a GitHub repo, from your phone."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State management (Riverpod 2 - riverpod 3.x is unreachable on Dart 3.7.2)
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # Networking
+  dio: ^5.7.0
+
+  # Local cache + queue
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Token storage. Pinned to 9.x on purpose: 10.0.0 is a breaking Android
+  # rewrite (Jetpack Crypto removal, new default ciphers, forced resetOnError).
+  flutter_secure_storage: ^9.2.4
+
+  path: ^1.9.0
+  path_provider: ^2.1.5
+
+  # Device gallery. photo_manager hands us data, not UI, so the picker grid
+  # is ours to style; image_picker cannot do mixed image+video multi-select
+  # and cannot expose selection ORDER, which here decides filenames.
+  photo_manager: ^3.8.0
+  photo_manager_image_provider: ^2.2.0
+
+  # Media processing
+  flutter_image_compress: ^2.4.0
+  # Also supplies video thumbnails, so video_thumbnail is not needed - which
+  # is fortunate, because video_thumbnail injects a dead jcenter() repo into
+  # rootProject.allprojects and breaks the whole Gradle build.
+  video_compress: ^3.1.4
+
+  # Media display + cache
+  cached_network_image: ^3.4.1
+  flutter_cache_manager: ^3.4.1
+  photo_view: ^0.15.0
+  video_player: ^2.9.5
+
+  connectivity_plus: ^6.1.4
+  url_launcher: ^6.3.2
+  package_info_plus: ^9.0.1
+  share_plus: ^12.0.0
+  wakelock_plus: ^1.2.8
+
+  # git blob sha-1 computed locally, so a resumed upload can skip work
+  crypto: ^3.0.6
+  uuid: ^4.5.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+  build_runner: ^2.4.13
+  riverpod_generator: ^2.6.3
+  hive_generator: ^2.0.1
+
+  flutter_launcher_icons: ^0.14.3
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/brand/
+
+  fonts:
+    # Bundled deliberately rather than referenced by name: Flutter silently
+    # falls back to the platform face when a fontFamily does not resolve, so
+    # a declared-but-unshipped family is an invisible bug. Body text uses the
+    # platform face on purpose - only chrome and monospace data are set here.
+    - family: JetBrains Mono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/JetBrainsMono-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/JetBrainsMono-Bold.ttf
+          weight: 700
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/brand/glickr_icon_1024.png"
+  adaptive_icon_background: "#0E0F11"
+  adaptive_icon_foreground: "assets/brand/glickr_foreground_1024.png"
+  adaptive_icon_monochrome: "assets/brand/glickr_monochrome_1024.png"
