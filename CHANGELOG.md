@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.0.1 — 2026-08-20
+
+Everything here came from using 1.0.0 against a real repo.
+
+### Fixed
+
+- **The cover was published twice.** An album's cover was written both as
+  `0.jpg` and under its number, so a 23-photo album committed 24 files, the
+  cover appeared in its own album twice, and a caption typed on it attached to
+  only one of the two copies. There is no separate cover file any more — the
+  cover is simply the album's first image, which is where it already sorted.
+- **Videos showed as blank tiles.** The tile was handing an `.mp4` to an image
+  decoder. Videos now render a poster frame, cached against the blob sha.
+- **The play button in the viewer did nothing.** Before a clip finished
+  initializing the badge was drawn with no play handler attached at all, so the
+  tap only toggled the chrome. The button now works in every state; tapping
+  before the clip is ready starts it the moment it arrives.
+- **Every caption was its own commit**, so captioning an album triggered a site
+  rebuild per photo. Caption edits now stage on the device and commit together.
+  The album screen shows how many are unsaved, and going back warns you first.
+- **The keyboard covered the Advanced fields** in repo setup, along with the
+  confirm button, with no way to scroll them into view.
+- **About linked to the wrong repo.** It opened whichever album repo was
+  configured, as though that were the app's source, and credited no one.
+  Rebuilt, attributed, and joined by a `PRIVACY.md` that leads with the two
+  things actually worth knowing: an album repo is public, and deleting a photo
+  leaves it in git history.
+
 ## 1.0.0 — 2026-08-20
 
 First release.
