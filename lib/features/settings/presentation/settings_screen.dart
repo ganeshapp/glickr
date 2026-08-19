@@ -6,6 +6,7 @@ import '../../../core/models/app_config.dart';
 import '../../../core/providers/albums_provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/config_provider.dart';
+import '../../../core/providers/pending_captions_provider.dart';
 import '../../../core/providers/services_provider.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/providers/upload_provider.dart';
@@ -53,10 +54,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _signOut() async {
     if (_signingOut) return;
+    // Captions typed but never saved are about to go with everything else, so
+    // they get named rather than discovered missing later.
+    final unsaved = ref
+        .read(pendingCaptionsNotifierProvider)
+        .values
+        .fold<int>(0, (total, album) => total + album.length);
+    final captionsNote = switch (unsaved) {
+      0 => '',
+      1 => " One caption you haven't saved yet goes with them.",
+      _ => " $unsaved captions you haven't saved yet go with them.",
+    };
+
     final confirmed = await _confirm(
       title: 'Sign out?',
       body: 'This removes your token and clears every cached album and '
-          'thumbnail from this device.',
+          'thumbnail from this device.$captionsNote',
       confirmLabel: 'Sign out',
     );
     if (!confirmed || !mounted) return;
@@ -66,6 +79,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // own bytes and its own target folder, and the token is dropped last so
     // every step above still has one if it needs to reach GitHub.
     await ref.read(uploadQueueNotifierProvider.notifier).clear();
+    // A staged caption names a file in one repo's album; there is nobody left
+    // to commit it as, and keeping it would apply it to whoever signs in next.
+    await ref.read(pendingCaptionsNotifierProvider.notifier).clear();
     await ref.read(albumsNotifierProvider.notifier).clearCache();
     await ref.read(mediaCacheServiceProvider).clear();
     await ref.read(authNotifierProvider.notifier).logout();
@@ -185,7 +201,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         .update((c) => c.copyWith(albumRoot: picked));
     // Every cached album is keyed to the old folder, so the grid would keep
     // showing albums that are not in the new one until something else forced a
-    // sync.
+    // sync. Staged captions go with them: they are keyed by album folder, and
+    // an album of the same name under the new root is a different album.
+    await ref.read(pendingCaptionsNotifierProvider.notifier).clear();
     await ref.read(albumsNotifierProvider.notifier).clearCache();
     await ref.read(albumsNotifierProvider.notifier).refresh();
   }

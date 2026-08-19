@@ -213,10 +213,10 @@ List<String> sortForDisplay(Iterable<String> names) {
 
 /// The album's items in display order, cover included.
 ///
-/// `0.jpg` is both the cover AND the first photo in the album - it sorts first
-/// by name, which is exactly where it belongs. It is deliberately NOT excluded
-/// here: a cover that vanishes from the album it covers reads as a lost photo,
-/// and the user still has to be able to see, caption and delete it.
+/// Nothing is excluded. The cover is not a separate file - it is just the
+/// first image in this same list - so leaving it out would make a photo the
+/// user uploaded vanish from the album it is the cover of, which reads as
+/// data loss. The user still has to be able to see, caption and delete it.
 List<String> galleryOrder(Iterable<String> names) => sortForDisplay(names);
 
 /// True when [path] is a file the site will render as part of an album.

@@ -43,9 +43,9 @@ dedicated album repo, or something like `assets/albums` inside a site repo:
 ```
 assets/albums/
   cycling_trip/
-    0.jpg           <- the cover. Sorts first, so it's also the album's first photo.
-    0001.jpg
-    0002.mp4
+    0001.jpg        <- the first photo, and therefore the album's cover
+    0002.jpg
+    0003.mp4
     album.md        <- the album description, plain text
     album.json      <- per-item captions
   barcamp-days/
@@ -58,7 +58,7 @@ The rules glickr follows, all of them ported from the site's own generator and c
 | Rule | Why |
 |---|---|
 | Only `<folder>/<file>` paths count | The site ignores anything nested deeper |
-| The cover is the image named `0` | Found by basename, images only - a video can't be a cover |
+| The cover is the *first image* | There is no separate cover file. Images only - a video can't be a cover |
 | Files sort lexicographically | Filename order *is* display order |
 | New files are `0001.jpg`, `0002.mp4`, … | One number space, so photos and videos interleave correctly |
 | Four digits, not three | `"1000.jpg" < "999.jpg"` as strings - at three digits the 1000th photo jumps to the front |

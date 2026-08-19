@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -95,18 +94,6 @@ class MediaPipelineService {
   static const int repoCeilingBytes = 1024 * 1024 * 1024;
   static const int repoWarnBytes = 800 * 1024 * 1024;
   static const int repoBlockBytes = 980 * 1024 * 1024;
-
-  /// Cover dimensions.
-  ///
-  /// The site's album cards are 3-up in a 696px content column, so each cover
-  /// renders at about 219x164 CSS px - 658x493 at DPR 3. 1200x900 covers that
-  /// crisply and a full-width phone hero at roughly 1:1, at about 160 KB.
-  /// Pre-cropping to 4:3 here rather than shipping an uncropped image and
-  /// letting `object-fit: cover` discard the extra saves roughly 110 KB on
-  /// every album-index page load.
-  static const int coverWidth = 1200;
-  static const int coverHeight = 900;
-  static const int coverQuality = 85;
 
   /// Three at a time. The native side runs an 8-thread pool so these really do
   /// overlap, but each holds a decoded bitmap, so this is a memory ceiling as
@@ -371,142 +358,6 @@ class MediaPipelineService {
     _cancelEpoch++;
     if (!_videoInFlight) return;
     await VideoCompress.cancelCompression();
-  }
-
-  /// Build the album cover, always as `0.jpg`.
-  ///
-  /// The site's cover lookup is scoped to image extensions, so a video cover
-  /// has to become a real still. Centre-cropped to 4:3 so the in-app preview
-  /// matches what the website's `object-fit: cover` will show.
-  ///
-  /// Derived from the ORIGINAL asset rather than the already-compressed
-  /// upload, to avoid stacking one lossy JPEG pass on another.
-  Future<ProcessedMedia> buildCover({
-    required AssetEntity asset,
-    required String targetPath,
-  }) async {
-    Uint8List? sourceBytes;
-
-    if (asset.type == AssetType.video) {
-      final file = await asset.originFile;
-      if (file == null) {
-        throw const MediaProcessingException(
-          "Couldn't read this video from your gallery",
-        );
-      }
-      // position is in ms; 1s in rather than frame 0, which on most phone
-      // clips is black.
-      sourceBytes = await VideoCompress.getByteThumbnail(
-        file.absolute.path,
-        quality: 90,
-        position: 1000,
-      );
-    } else {
-      sourceBytes = await asset.originBytes;
-    }
-
-    if (sourceBytes == null || sourceBytes.isEmpty) {
-      throw const MediaProcessingException("Couldn't build a cover image");
-    }
-
-    final cropped = await _centerCropToJpegSource(sourceBytes);
-    final out = await FlutterImageCompress.compressWithList(
-      cropped,
-      minWidth: coverWidth,
-      minHeight: coverHeight,
-      quality: coverQuality,
-      format: CompressFormat.jpeg,
-      keepExif: false,
-    );
-    if (out.isEmpty) {
-      throw const MediaProcessingException("Couldn't build a cover image");
-    }
-
-    final file = await File(targetPath).writeAsBytes(out, flush: true);
-    return ProcessedMedia(
-      file: file,
-      bytes: out.length,
-      sourceBytes: sourceBytes.length,
-      isVideo: false,
-    );
-  }
-
-  /// Centre-crop [bytes] to the cover's 4:3 box and return PNG bytes.
-  ///
-  /// PNG is an intermediate only - it goes straight back into the JPEG
-  /// encoder - so it costs nothing visually and avoids a double JPEG pass.
-  /// Drawn onto an opaque white canvas because JPEG has no alpha and Skia
-  /// composites transparency onto BLACK, which would give a transparent PNG
-  /// source an unexpected black backing.
-  Future<Uint8List> _centerCropToJpegSource(Uint8List bytes) async {
-    final codec = await ui.instantiateImageCodec(
-      bytes,
-      // Decode no larger than needed; a 48 MP source does not need to be
-      // fully realised to produce a 1200px cover.
-      targetWidth: coverWidth * 2,
-    );
-    final frame = await codec.getNextFrame();
-    final image = frame.image;
-
-    try {
-      const targetRatio = coverWidth / coverHeight;
-      final srcW = image.width.toDouble();
-      final srcH = image.height.toDouble();
-      final srcRatio = srcW / srcH;
-
-      double cropW = srcW;
-      double cropH = srcH;
-      if (srcRatio > targetRatio) {
-        cropW = srcH * targetRatio;
-      } else {
-        cropH = srcW / targetRatio;
-      }
-      final srcRect = ui.Rect.fromLTWH(
-        (srcW - cropW) / 2,
-        (srcH - cropH) / 2,
-        cropW,
-        cropH,
-      );
-
-      final recorder = ui.PictureRecorder();
-      final canvas = ui.Canvas(recorder);
-      final dstRect = ui.Rect.fromLTWH(
-        0,
-        0,
-        coverWidth.toDouble(),
-        coverHeight.toDouble(),
-      );
-      canvas.drawRect(dstRect, ui.Paint()..color = const ui.Color(0xFFFFFFFF));
-      canvas.drawImageRect(
-        image,
-        srcRect,
-        dstRect,
-        ui.Paint()..filterQuality = ui.FilterQuality.high,
-      );
-
-      final picture = recorder.endRecording();
-      try {
-        final rendered = await picture.toImage(coverWidth, coverHeight);
-        try {
-          final data = await rendered.toByteData(
-            format: ui.ImageByteFormat.png,
-          );
-          if (data == null) {
-            throw const MediaProcessingException(
-              "Couldn't build a cover image",
-            );
-          }
-          return data.buffer.asUint8List();
-        } finally {
-          rendered.dispose();
-        }
-      } finally {
-        picture.dispose();
-      }
-    } finally {
-      image.dispose();
-      codec.dispose();
-    }
   }
 
   /// Projected output size for a video of [duration] at [preset].

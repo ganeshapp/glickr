@@ -6,6 +6,7 @@ import '../../../core/models/album.dart';
 import '../../../core/models/media_item.dart';
 import '../../../core/providers/album_actions_provider.dart';
 import '../../../core/providers/config_provider.dart';
+import '../../../core/providers/pending_captions_provider.dart';
 import '../../../core/services/media_pipeline_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/album_conventions.dart';
@@ -16,7 +17,7 @@ import '../../picker/presentation/media_picker_screen.dart';
 import '../../viewer/presentation/photo_viewer_screen.dart';
 import '../widgets/media_tile.dart';
 
-enum _AlbumMenu { description, rename, web, delete }
+enum _AlbumMenu { description, rename, web, discardCaptions, delete }
 
 enum _SelectionMenu { selectAll, clear }
 
@@ -62,6 +63,11 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
   /// rename makes the old folder key vanish, which is indistinguishable from a
   /// delete at the provider level.
   bool _renaming = false;
+
+  /// True while the staged captions are being committed. Separate from
+  /// [albumActionsProvider]'s flag because the flush goes through the pending
+  /// captions notifier, which has no busy state of its own.
+  bool _savingCaptions = false;
 
   @override
   void initState() {
@@ -155,6 +161,14 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
 
     final newFolder = folderNameFor(title);
     final moved = newFolder.isNotEmpty && newFolder != album.folder;
+
+    if (moved && _stagedCount > 0) {
+      // Staged captions are filed under the folder name. A rename would strand
+      // them on a folder that no longer exists, so they go out first - one
+      // extra build, on something nobody does twice a day.
+      await _saveCaptions(album);
+      if (!mounted || _stagedCount > 0) return; // failed, already reported
+    }
     _renaming = moved;
 
     final result = await ref
@@ -199,6 +213,14 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     final result = await ref
         .read(albumActionsProvider.notifier)
         .deleteAlbum(album);
+    if (result.ok) {
+      // The folder is gone, so any staged caption for it can never be saved.
+      // Left behind it would keep the leave-warning armed for an album that
+      // no longer exists.
+      await ref
+          .read(pendingCaptionsNotifierProvider.notifier)
+          .discard(album.folder);
+    }
     // On success the album leaves the list, this screen's watch turns null and
     // the build below pops it - so there is nothing to do here but say so.
     _report(result, 'Album deleted');
@@ -254,6 +276,93 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
         .deleteItems(album, names);
     if (result.ok && mounted) _clearSelection();
     _report(result, single == null ? 'Deleted $count items' : 'Deleted');
+  }
+
+  // -------------------------------------------------------------- captions
+
+  /// How many caption edits are staged for this album.
+  ///
+  /// Watched rather than read, so the banner and the menu entry appear the
+  /// moment a caption is typed in the viewer sitting on top of this screen.
+  int get _pendingCount =>
+      ref.watch(pendingCaptionsNotifierProvider)[widget.folder]?.length ?? 0;
+
+  /// The same number, for callbacks: ref.watch is build-only.
+  int get _stagedCount => ref
+      .read(pendingCaptionsNotifierProvider.notifier)
+      .countFor(widget.folder);
+
+  /// Commit every staged caption at once.
+  ///
+  /// On failure the edits stay staged - the notifier only clears them once the
+  /// commit lands. Dropping someone's typing because the network blipped is a
+  /// worse outcome than making them press Save again.
+  Future<void> _saveCaptions(Album album) async {
+    if (_savingCaptions) return;
+    setState(() => _savingCaptions = true);
+
+    final result = await ref
+        .read(pendingCaptionsNotifierProvider.notifier)
+        .flush(album);
+    if (!mounted) return;
+
+    setState(() => _savingCaptions = false);
+    _report(result, 'Captions saved');
+  }
+
+  Future<void> _discardCaptions(int count) async {
+    final ok = await _confirm(
+      title: 'Discard unsaved captions?',
+      body:
+          '${_plural(count, 'caption')} you typed on this device would be '
+          "thrown away. The captions already on your site aren't touched.",
+      confirmLabel: 'Discard',
+    );
+    if (!ok) return;
+
+    await ref
+        .read(pendingCaptionsNotifierProvider.notifier)
+        .discard(widget.folder);
+  }
+
+  /// Back was pressed with captions still staged.
+  ///
+  /// The edits are NOT discarded on the way out - they are persisted on
+  /// purpose, so leaving is a pause rather than a loss. The dialog exists only
+  /// because "saved" and "saved on this phone" look identical on screen.
+  Future<void> _confirmLeave(int count) async {
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          'Leave without saving captions?',
+          style: context.textTheme.titleLarge,
+        ),
+        content: Text(
+          count == 1
+              ? "1 caption is only on this device. It'll still be here when "
+                    'you come back.'
+              : "$count captions are only on this device. They'll still be "
+                    'here when you come back.',
+          style: context.textTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Stay'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    if (leave != true || !mounted) return;
+
+    // Navigator.pop rather than maybePop: PopScope only guards the latter, so
+    // this leaves without re-asking the question the user just answered.
+    Navigator.of(context).pop();
   }
 
   // ------------------------------------------------------------- plumbing
@@ -336,15 +445,21 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     // can never inflate the count or enable an action.
     final selected = items.where((i) => _selected.contains(i.name)).toList();
     final selectionMode = selected.isNotEmpty;
-    final busy = ref.watch(albumActionsProvider);
+    final busy = ref.watch(albumActionsProvider) || _savingCaptions;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final unsaved = _pendingCount;
 
     return PopScope(
-      canPop: !selectionMode,
+      canPop: !selectionMode && unsaved == 0,
       onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
         // Back leaves selection before it leaves the album - the same order the
         // user built the state up in.
-        if (!didPop) _clearSelection();
+        if (selectionMode) {
+          _clearSelection();
+          return;
+        }
+        _confirmLeave(unsaved);
       },
       child: Scaffold(
         floatingActionButton: IgnorePointer(
@@ -373,6 +488,8 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
               slivers: [
                 _header(album),
                 _description(album, items),
+                if (unsaved > 0)
+                  SliverToBoxAdapter(child: _unsavedCaptions(album, unsaved)),
                 if (items.isEmpty)
                   const SliverFillRemaining(
                     hasScrollBody: false,
@@ -451,6 +568,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     final topInset = MediaQuery.paddingOf(context).top;
     final headerItem = album.cover ?? _firstImage(album);
     final webUrl = ref.watch(configNotifierProvider)?.albumWebUrl(album.slug);
+    final unsaved = _pendingCount;
 
     return ValueListenableBuilder<double>(
       valueListenable: _collapse,
@@ -490,6 +608,8 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                     _rename(album);
                   case _AlbumMenu.web:
                     _openOnWeb(album);
+                  case _AlbumMenu.discardCaptions:
+                    _discardCaptions(unsaved);
                   case _AlbumMenu.delete:
                     _confirmDeleteAlbum(album);
                 }
@@ -510,6 +630,13 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                   const PopupMenuItem(
                     value: _AlbumMenu.web,
                     child: Text('Open on web'),
+                  ),
+                // Only offered when there is something to discard - an entry
+                // that is always there reads as "captions are usually unsaved".
+                if (unsaved > 0)
+                  const PopupMenuItem(
+                    value: _AlbumMenu.discardCaptions,
+                    child: Text('Discard unsaved captions'),
                   ),
                 PopupMenuItem(
                   value: _AlbumMenu.delete,
@@ -658,6 +785,23 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// The "you have captions waiting" strip, under the description.
+  ///
+  /// The copy names the consequence rather than nagging: every commit to the
+  /// album repo kicks off a site build, so one save at the end is one build
+  /// instead of one per caption.
+  Widget _unsavedCaptions(Album album, int count) {
+    return StatusBanner(
+      icon: Icons.edit_note_rounded,
+      tint: context.appColors.warning,
+      message:
+          '${_plural(count, 'caption')} not saved yet - saving rebuilds your '
+          "site, so it's worth doing them all in one go.",
+      actionLabel: _savingCaptions ? 'Saving...' : 'Save',
+      onAction: () => _saveCaptions(album),
     );
   }
 

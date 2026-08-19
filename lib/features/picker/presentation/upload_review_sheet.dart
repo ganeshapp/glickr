@@ -284,8 +284,10 @@ class _UploadReviewSheetState extends ConsumerState<UploadReviewSheet> {
             blurb: _isNewAlbum && description.isNotEmpty ? description : null,
             existingAlbum: _album,
             captions: captions,
-            // Only a new album gets a cover from this sheet; writing 0.jpg
-            // into an existing album would replace the cover it already has.
+            // Only a new album gets a cover from this sheet. The cover is
+            // whatever sorts first, so choosing one here just moves it to the
+            // front of the batch - in an existing album that would silently
+            // demote the cover it already has.
             coverAssetId: _isNewAlbum ? _coverAssetId : null,
           );
       await ref.read(uploadQueueNotifierProvider.notifier).enqueueJob(job);
@@ -769,7 +771,7 @@ class _UploadReviewSheetState extends ConsumerState<UploadReviewSheet> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
           child: Text(
-            'This one is copied to 0.jpg - the image your site puts on the '
+            'This one goes first in the album, and your site puts it on the '
             'album card.',
             style: context.textTheme.bodySmall,
           ),

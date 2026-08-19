@@ -4,10 +4,25 @@ import 'dart:typed_data';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:video_compress/video_compress.dart';
 
 import '../models/album.dart';
 import '../models/app_config.dart';
 import '../models/media_item.dart';
+
+/// Decodes a still frame from the video at [videoPath], or null.
+///
+/// Injected rather than called directly so the cache's key derivation and
+/// fallbacks can be exercised in a test: the real implementation is a platform
+/// channel, which no widget test has.
+typedef PosterFrameBuilder = Future<Uint8List?> Function(String videoPath);
+
+Future<Uint8List?> _decodePosterFrame(String videoPath) {
+  // position is in ms; 1s in rather than frame 0, which on most phone clips is
+  // black. Quality is lower than the upload path's cover frame because this
+  // one is only ever drawn into a grid cell.
+  return VideoCompress.getByteThumbnail(videoPath, quality: 70, position: 1000);
+}
 
 /// Disk cache for photo and video bytes.
 ///
@@ -30,21 +45,35 @@ class MediaCacheService {
   static const String _cacheKey = 'glickrMedia';
 
   final CacheManager _manager;
+  final PosterFrameBuilder _posterFrame;
 
-  MediaCacheService({CacheManager? manager, int maxObjects = 1200})
-    : _manager =
-          manager ??
-          CacheManager(
-            Config(
-              _cacheKey,
-              // Content-addressed entries can never go stale, so the only
-              // reason to evict is space. A year is effectively "never".
-              stalePeriod: const Duration(days: 365),
-              maxNrOfCacheObjects: maxObjects,
-            ),
-          );
+  MediaCacheService({
+    CacheManager? manager,
+    int maxObjects = 1200,
+    PosterFrameBuilder posterFrame = _decodePosterFrame,
+  }) : _manager =
+           manager ??
+           CacheManager(
+             Config(
+               _cacheKey,
+               // Content-addressed entries can never go stale, so the only
+               // reason to evict is space. A year is effectively "never".
+               stalePeriod: const Duration(days: 365),
+               maxNrOfCacheObjects: maxObjects,
+             ),
+           ),
+       _posterFrame = posterFrame;
 
   CacheManager get manager => _manager;
+
+  /// Cache key for the still frame derived from the video with this blob sha.
+  ///
+  /// Deriving it from the blob sha rather than inventing a second namespace
+  /// means the poster inherits the video's invalidation exactly: replace the
+  /// clip upstream and both entries miss together, because a blob sha is a
+  /// content hash. The prefix cannot collide with a real sha, which is 40 hex
+  /// characters and never contains a dash.
+  static String posterKeyFor(String blobSha) => 'poster-$blobSha';
 
   /// The already-downloaded file for [item], or null.
   ///
@@ -74,6 +103,60 @@ class MediaCacheService {
     return downloaded.file;
   }
 
+  /// The already-generated poster frame for video [item], or null.
+  ///
+  /// Never triggers a network request, for the same reason [cachedFile] does
+  /// not: an offline grid should show the posters it already has.
+  Future<File?> cachedPoster(MediaItem item) async {
+    final info = await _manager.getFileFromCache(posterKeyFor(item.blobSha));
+    return info?.file;
+  }
+
+  /// A still frame for video [item], generated once and then cached.
+  ///
+  /// A video has no bytes an image decoder can read, so a tile that hands the
+  /// .mp4 to `Image.file` renders nothing. This makes the frame the grid draws
+  /// instead.
+  ///
+  /// Deriving it needs the clip itself, so the first call downloads the whole
+  /// file. Everything after that is a cache read.
+  ///
+  /// Returns null on ANY failure - an unreachable host, a codec the device
+  /// cannot decode, a clip shorter than the seek position. A video glickr
+  /// cannot make a poster for falls back to the tile placeholder; it must
+  /// never take the grid down with it.
+  Future<File?> poster({
+    required AppConfig config,
+    required Album album,
+    required MediaItem item,
+    required String commitSha,
+  }) async {
+    final key = posterKeyFor(item.blobSha);
+    final hit = await _manager.getFileFromCache(key);
+    if (hit != null) return hit.file;
+
+    try {
+      final video = await fetch(
+        config: config,
+        album: album,
+        item: item,
+        commitSha: commitSha,
+      );
+      final bytes = await _posterFrame(video.absolute.path);
+      if (bytes == null || bytes.isEmpty) return null;
+      return await _manager.putFile(
+        // The URL is only an identifier here; the key is what lookups use.
+        'glickr://$key',
+        bytes,
+        key: key,
+        fileExtension: 'jpg',
+        maxAge: const Duration(days: 365),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Store bytes glickr just uploaded under their blob sha.
   ///
   /// Seeding from the local file the moment a commit lands means the photos
@@ -95,7 +178,14 @@ class MediaCacheService {
   }
 
   /// Drop one entry, for when a file's bytes were replaced upstream.
-  Future<void> evict(String blobSha) => _manager.removeFile(blobSha);
+  ///
+  /// Takes the poster with it. The two are one logical entry, and a poster
+  /// left behind after a truncated video was evicted would keep the grid
+  /// showing a frame from a clip that is no longer there.
+  Future<void> evict(String blobSha) async {
+    await _manager.removeFile(blobSha);
+    await _manager.removeFile(posterKeyFor(blobSha));
+  }
 
   Future<void> clear() => _manager.emptyCache();
 

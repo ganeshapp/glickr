@@ -18,6 +18,7 @@ import '../../../core/widgets/glickr_shimmer.dart';
 import '../../../core/widgets/remote_media.dart' show StaggeredFadeIn;
 import '../../config/presentation/repo_setup_screen.dart';
 import '../../picker/presentation/media_picker_screen.dart';
+import '../../settings/presentation/about_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../widgets/album_card.dart';
 import 'album_detail_screen.dart';
@@ -486,7 +487,11 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
           MaterialPageRoute<void>(builder: (_) => const RepoSetupScreen()),
         );
       case _MenuAction.about:
-        _showAbout();
+        // The real About screen, shared with Settings. It describes glickr
+        // itself - never the album repo that happens to be selected.
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const AboutScreen()),
+        );
     }
   }
 
@@ -533,55 +538,6 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
               ],
             );
           },
-        ),
-      ),
-    );
-  }
-
-  void _showAbout() {
-    final config = ref.read(configNotifierProvider);
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('glickr', style: context.textTheme.headlineMedium),
-              const SizedBox(height: 8),
-              Text(
-                'Albums for a GitHub repo. Your photos live in your own repo '
-                "and are served straight from it - there's no glickr server "
-                'holding a copy.',
-                style: context.textTheme.bodyMedium,
-              ),
-              if (config != null) ...[
-                const SizedBox(height: 18),
-                Text(config.repoSlug, style: AppTheme.mono(context, size: 12)),
-                const SizedBox(height: 6),
-                Text(
-                  'Branch ${config.branch} - the repo has to stay public, '
-                  'because the CDN that serves your site cannot read a '
-                  'private one.',
-                  style: context.textTheme.bodySmall,
-                ),
-                const SizedBox(height: 18),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(sheetContext).pop();
-                    openExternalUrlUnawaited(
-                      'https://github.com/${config.repoSlug}',
-                    );
-                  },
-                  icon: const Icon(Icons.code_rounded, size: 18),
-                  label: const Text('Open the repo on GitHub'),
-                ),
-              ],
-            ],
-          ),
         ),
       ),
     );

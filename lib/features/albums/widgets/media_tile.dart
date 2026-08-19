@@ -144,11 +144,13 @@ class MediaTile extends StatelessWidget {
   }
 }
 
-/// The chip on `0.jpg`.
+/// The chip on the album's first image.
 ///
-/// The website drops the cover from its gallery grid; glickr shows it, because
-/// a photo that silently disappears from the album it was uploaded to reads as
-/// data loss. The chip is how the user learns it is the one doing double duty.
+/// The cover is not a separate file - it is simply whichever image sorts
+/// first, so it is an ordinary photo in the grid like any other. The chip is
+/// the only thing telling the user that this particular one is also the face
+/// of the album, and therefore what "Set as cover" on another photo will
+/// change.
 class _CoverChip extends StatelessWidget {
   const _CoverChip();
 

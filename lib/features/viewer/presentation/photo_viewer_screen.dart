@@ -97,8 +97,26 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
   /// current page. Holding one per page would keep a hardware decoder open for
   /// every neighbour the PageView has built.
   VideoPlayerController? _video;
+
+  /// The blob sha the current page WANTS open, and the one that actually IS.
+  /// They differ while a controller is opening or closing; the reconciler's
+  /// only job is to close the gap.
+  String? _videoWanted;
   String? _videoKey;
+
   bool _videoFailed = false;
+
+  /// Play was tapped before the clip was ready. Honoured the moment it is,
+  /// rather than dropped - a play button that swallows the tap is exactly the
+  /// bug this screen had.
+  bool _playWhenReady = false;
+
+  /// Every open and close is queued here. Opening a controller takes several
+  /// frames, and a swipe during one used to dispose a controller that another
+  /// call was still initialising - which left the page holding a controller
+  /// that never became ready, showing a play badge that did nothing.
+  Future<void> _videoWork = Future<void>.value();
+  bool _videoBusy = false;
 
   int _index = 0;
   bool _chromeVisible = true;
@@ -120,7 +138,10 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
 
   @override
   void dispose() {
-    _video?.dispose();
+    // Queued rather than disposed outright: a controller may still be opening,
+    // and the one that ends up in _video is the one that has to be torn down.
+    _videoWanted = null;
+    _queueVideoWork(_closeVideo);
     _pager.dispose();
     _settle.dispose();
     _dragY.dispose();
@@ -174,37 +195,81 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
     setState(() {
       _resolved.remove(item.blobSha);
       _requests.remove(item.blobSha);
+      if (_videoKey == item.blobSha) {
+        // Forget the controller too. Without this the reconciler would decide
+        // the page already has what it asked for and never try again, so
+        // "Try again" on a video would do nothing.
+        _videoFailed = false;
+        _videoKey = null;
+      }
     });
   }
 
   // ------------------------------------------------------------------ video
 
-  /// Make the open controller match [current], creating and tearing down as
-  /// the user swipes.
+  /// Record which video [current] needs open and get the work moving.
   ///
-  /// Driven from build because three unrelated things decide which video
+  /// Called from build because three unrelated things decide which video
   /// should be open - a page change, a download finishing, and a delete
   /// shifting the list - and funnelling them here means there is one place
-  /// where a controller can leak. It only touches fields; the async
-  /// initialisation calls setState later.
+  /// where a controller can leak. It only records intent: creating a
+  /// controller inline would mutate, during a build, the very state that build
+  /// has already read.
   void _syncVideo(MediaItem current) {
     final wanted = current.isVideo ? current.blobSha : null;
-    if (wanted == _videoKey) return;
+    if (wanted != _videoWanted) {
+      _videoWanted = wanted;
+      _videoFailed = false;
+      _playWhenReady = false;
+    }
+    // Already showing what it wants, or a reconcile is running that will get
+    // there. _videoBusy is the guard that stops every rebuild queueing another.
+    if (_videoWanted == _videoKey || _videoBusy) return;
+    _videoBusy = true;
+    _queueVideoWork(_reconcileVideo);
+  }
 
-    _closeVideo();
-    _videoFailed = false;
-    if (wanted == null) return;
+  /// Run [work] after whatever controller work is already in flight.
+  ///
+  /// Errors are swallowed deliberately: a platform teardown that throws must
+  /// not leave a failed future at the head of the queue, or no video would
+  /// open again for the rest of the session.
+  void _queueVideoWork(Future<void> Function() work) {
+    _videoWork = _videoWork.then((_) => work()).catchError((Object _) {});
+  }
 
-    final file = _resolved[wanted];
-    if (file == null) return; // still downloading - the next build tries again
-    unawaited(_openVideo(wanted, file));
+  /// Close whatever is open and open what the current page asked for.
+  ///
+  /// Loops rather than running once: the page can turn again while a
+  /// controller is still initialising, and the last intent has to win.
+  Future<void> _reconcileVideo() async {
+    try {
+      while (mounted && _videoWanted != _videoKey) {
+        final wanted = _videoWanted;
+        await _closeVideo();
+        if (!mounted || wanted != _videoWanted) continue;
+        if (wanted == null) continue; // _closeVideo already settled it
+
+        final file = _resolved[wanted];
+        // Not downloaded yet. Stop here rather than spinning - resolving it
+        // rebuilds the screen, and that build queues this again.
+        if (file == null) break;
+        await _openVideo(wanted, file);
+      }
+    } finally {
+      // In a finally so a throw still releases the guard; otherwise one bad
+      // teardown would stop every later page from opening its video.
+      _videoBusy = false;
+    }
   }
 
   Future<void> _openVideo(String key, File file) async {
     final controller = VideoPlayerController.file(file);
-    // Claimed synchronously so a rebuild during initialisation can't start a
-    // second controller for the same page.
+    // Claimed synchronously so nothing can start a second controller for the
+    // same page while this one initialises.
     _video = controller;
+    // Set BEFORE the await, and left set even when initialisation fails, so
+    // this key counts as settled either way and the loop above terminates.
     _videoKey = key;
 
     try {
@@ -218,23 +283,40 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
       return;
     }
 
-    if (!mounted || _video != controller) return;
-    setState(() {});
+    if (_video != controller) return; // superseded; _closeVideo owns it now
+    if (!mounted) return; // the screen went away; dispose() owns it now
+
+    if (_playWhenReady) {
+      _playWhenReady = false;
+      await controller.play();
+    }
+    if (mounted) setState(() {});
   }
 
-  void _closeVideo() {
+  /// Tear down the open controller, awaiting it fully.
+  ///
+  /// Nulling [_video] first is what hands ownership over: an [_openVideo] call
+  /// still sitting in `initialize()` sees the field has moved on and leaves
+  /// the disposing to this, so nothing is ever disposed twice.
+  Future<void> _closeVideo() async {
     final controller = _video;
     _video = null;
     _videoKey = null;
     if (controller == null) return;
-    // Deferred one frame: this runs during build, and the VideoPlayer widget
-    // still holding this controller is only unmounted once that build lands.
-    WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
+    // dispose() waits on the platform-side create, so this is safe to call
+    // while initialisation is still in flight.
+    await controller.dispose();
   }
 
   Future<void> _togglePlay() async {
     final controller = _video;
-    if (controller == null || !controller.value.isInitialized) return;
+    if (controller == null || !controller.value.isInitialized) {
+      // Still downloading, or still opening. Remember the tap and start the
+      // moment it is ready - and let a second tap take it back, so this can't
+      // strand the user with a clip that starts by itself later.
+      setState(() => _playWhenReady = !_playWhenReady);
+      return;
+    }
     if (controller.value.isPlaying) {
       await controller.pause();
       return;
@@ -260,6 +342,12 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
   }
 
   void _onPageChanged(int page) {
+    // Silenced the moment the page turns, rather than waiting for the teardown
+    // queued behind whatever else is running: a clip that keeps playing after
+    // you have swiped away from it is worse than one that never started.
+    // Here rather than in _syncVideo because pausing notifies the controller's
+    // listeners, and _syncVideo runs during build.
+    unawaited(_video?.pause());
     setState(() {
       _index = page;
       // Each page carries its own scale controller, and photo_view doesn't
@@ -614,8 +702,35 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
     );
     final key = item.blobSha;
 
-    if (!_resolved.containsKey(key)) {
-      unawaited(_fileFor(item));
+    final requested = _resolved.containsKey(key);
+    if (!requested) unawaited(_fileFor(item));
+    final file = requested ? _resolved[key] : null;
+
+    if (item.isVideo) {
+      final isCurrent = index == _index.clamp(0, items.length - 1);
+      return _customPage(
+        hero: hero,
+        child: _VideoStage(
+          // The poster frame, so a video page shows the clip's own first
+          // second while it opens instead of a black rectangle - and so the
+          // hero arrives holding the same image the grid tile was showing.
+          poster: _onBlack(
+            RemoteMedia(album: album, item: item, fit: BoxFit.contain),
+          ),
+          // Only the current page gets the controller; the neighbours the
+          // PageView has already built show the poster and the play badge.
+          controller: isCurrent ? _video : null,
+          failed: isCurrent && _videoFailed,
+          unavailable: requested && file == null,
+          armed: isCurrent && _playWhenReady,
+          onTap: _toggleChrome,
+          onPlayPause: () => unawaited(_togglePlay()),
+          onRetry: () => unawaited(_retry(item)),
+        ),
+      );
+    }
+
+    if (!requested) {
       // RemoteMedia rather than a bare spinner, because this is what the hero
       // flies: the flight builds the destination's child, and a live
       // RemoteMedia resolves the same cached bytes mid-flight instead of
@@ -623,53 +738,18 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
       // cache manager de-duplicates concurrent requests for a key.
       return _customPage(
         hero: hero,
-        child:
-            item.isVideo
-                ? const _ViewerLoading()
-                // RemoteMedia's own placeholder is a surfaceContainer block,
-                // which in the light theme is a pale rectangle - fine in the
-                // grid, a full-screen flash here. The room is black, so the
-                // placeholder should be too.
-                : Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: context.colorScheme.copyWith(
-                      surfaceContainer: Colors.black,
-                    ),
-                  ),
-                  child: RemoteMedia(
-                    album: album,
-                    item: item,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-      );
-    }
-
-    final file = _resolved[key];
-    if (file == null) {
-      return _customPage(
-        hero: hero,
-        child: _ViewerError(
-          message:
-              item.isVideo
-                  ? "Couldn't load this video"
-                  : "Couldn't load this photo",
-          onRetry: () => unawaited(_retry(item)),
+        child: _onBlack(
+          RemoteMedia(album: album, item: item, fit: BoxFit.contain),
         ),
       );
     }
 
-    if (item.isVideo) {
-      final isCurrent = index == _index.clamp(0, items.length - 1);
+    if (file == null) {
       return _customPage(
         hero: hero,
-        child: _VideoStage(
-          // Only the current page gets the controller; the neighbours the
-          // PageView has already built show the play badge and nothing else.
-          controller: isCurrent ? _video : null,
-          failed: isCurrent && _videoFailed,
-          onTap: _toggleChrome,
-          onPlayPause: () => unawaited(_togglePlay()),
+        child: _ViewerError(
+          message: "Couldn't load this photo",
+          onRetry: () => unawaited(_retry(item)),
         ),
       );
     }
@@ -687,6 +767,20 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
             message: "Couldn't load this photo",
             onRetry: () => unawaited(_retry(item)),
           ),
+    );
+  }
+
+  /// RemoteMedia's own placeholder is a surfaceContainer block, which in the
+  /// light theme is a pale rectangle - fine in the grid, a full-screen flash
+  /// here. The room is black, so the placeholder should be too.
+  Widget _onBlack(Widget child) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        colorScheme: context.colorScheme.copyWith(
+          surfaceContainer: Colors.black,
+        ),
+      ),
+      child: child,
     );
   }
 
@@ -883,11 +977,10 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
     return ValueListenableBuilder<VideoPlayerValue>(
       valueListenable: controller,
       builder: (context, value, _) {
+        // Present from the moment the clip is ready, not only once it has
+        // started: the scrubber is also how you tell a video that CAN play
+        // from one that is still opening.
         if (!value.isInitialized) return const SizedBox.shrink();
-        // Nothing to scrub before the clip has started; the big play button is
-        // the only control that matters until then.
-        final started = value.isPlaying || value.position > Duration.zero;
-        if (!started) return const SizedBox.shrink();
 
         return Container(
           width: double.infinity,
@@ -1009,26 +1102,16 @@ String? _mimeTypeFor(MediaItem item) {
 
 // --------------------------------------------------------------- page states
 
-class _ViewerLoading extends StatelessWidget {
-  const _ViewerLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: SizedBox(
-        width: 26,
-        height: 26,
-        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-      ),
-    );
-  }
-}
-
 class _ViewerError extends StatelessWidget {
   final String message;
+  final String detail;
   final VoidCallback onRetry;
 
-  const _ViewerError({required this.message, required this.onRetry});
+  const _ViewerError({
+    required this.message,
+    required this.onRetry,
+    this.detail = "You might be offline, or it hasn't finished downloading.",
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1051,7 +1134,7 @@ class _ViewerError extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            "You might be offline, or it hasn't finished downloading.",
+            detail,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.5),
@@ -1070,80 +1153,137 @@ class _ViewerError extends StatelessWidget {
   }
 }
 
-/// The video page: the frame itself plus the play badge that sits over it.
+/// The video page: the poster or the clip itself, plus the play control.
 ///
 /// Stateless on purpose - the controller's whole lifecycle lives in the screen
 /// state, so there is exactly one of them and one place that disposes it.
 class _VideoStage extends StatelessWidget {
+  /// Drawn until the clip itself can be. A video page used to sit on black
+  /// while it opened, which read as a file that had failed.
+  final Widget poster;
+
   final VideoPlayerController? controller;
+
+  /// The clip's bytes could not be fetched.
+  final bool unavailable;
+
+  /// The bytes are here, but the device could not open them.
   final bool failed;
+
+  /// Play was tapped before the clip was ready.
+  final bool armed;
+
   final VoidCallback onTap;
   final VoidCallback onPlayPause;
+  final VoidCallback onRetry;
 
   const _VideoStage({
+    required this.poster,
     required this.controller,
+    required this.unavailable,
     required this.failed,
+    required this.armed,
     required this.onTap,
     required this.onPlayPause,
+    required this.onRetry,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (unavailable) {
+      return _ViewerError(
+        message: "Couldn't load this video",
+        onRetry: onRetry,
+      );
+    }
     if (failed) {
-      return const Center(
-        child: Text(
-          "Couldn't play this video",
-          style: TextStyle(color: Colors.white70, fontSize: 15),
-        ),
+      return _ViewerError(
+        message: "Couldn't play this video",
+        detail:
+            "Your phone might not be able to decode it - it's still safe on "
+            'GitHub.',
+        onRetry: onRetry,
       );
     }
 
     final controller = this.controller;
-    if (controller == null || !controller.value.isInitialized) {
-      // Either a neighbouring page or one still opening. The badge doubles as
-      // the "this is a video" signal while the user swipes past.
-      return GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: const Center(child: VideoBadge(size: 64)),
-      );
+    if (controller == null) {
+      // A neighbouring page, or the current one before its controller exists.
+      return _frame(background: poster, ready: false, playing: false);
     }
 
+    return ValueListenableBuilder<VideoPlayerValue>(
+      valueListenable: controller,
+      builder: (context, value, player) {
+        if (!value.isInitialized) {
+          return _frame(background: poster, ready: false, playing: false);
+        }
+        return _frame(
+          background: Center(
+            child: AspectRatio(aspectRatio: value.aspectRatio, child: player),
+          ),
+          ready: true,
+          playing: value.isPlaying,
+        );
+      },
+      // Passed as the unchanging child: the texture must not be rebuilt on
+      // every position tick.
+      child: VideoPlayer(controller),
+    );
+  }
+
+  Widget _frame({
+    required Widget background,
+    required bool ready,
+    required bool playing,
+  }) {
     return GestureDetector(
+      // The tap that shows and hides the chrome. The play button below sits
+      // deeper in the tree, so it takes the taps that land on it and this one
+      // gets the rest.
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: ValueListenableBuilder<VideoPlayerValue>(
-        valueListenable: controller,
-        builder: (context, value, player) {
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              Center(
-                child: AspectRatio(
-                  aspectRatio: value.aspectRatio,
-                  child: player,
-                ),
-              ),
-              // Never autoplays. These are the user's own files, but they still
-              // cost battery and data, and a video that starts itself on a
-              // swipe-through is hostile.
-              if (!value.isPlaying)
-                Center(
-                  child: Semantics(
-                    button: true,
-                    label: 'Play',
-                    child: GestureDetector(
-                      onTap: onPlayPause,
-                      child: const VideoBadge(size: 64),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          background,
+          // Never autoplays. These are the user's own files, but they still
+          // cost battery and data, and a video that starts itself on a
+          // swipe-through is hostile.
+          if (!playing)
+            Center(
+              child: Semantics(
+                button: true,
+                label: armed ? 'Cancel play' : 'Play',
+                child: GestureDetector(
+                  // Opaque, so the whole 64px target answers rather than just
+                  // the glyph drawn inside it.
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onPlayPause,
+                  child: SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Armed means the tap landed before the clip was
+                        // ready. Showing that is the difference between
+                        // "loading" and "that button is broken".
+                        if (armed && !ready)
+                          const SizedBox.expand(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                        VideoBadge(size: armed && !ready ? 46 : 64),
+                      ],
                     ),
                   ),
                 ),
-            ],
-          );
-        },
-        // Passed as the unchanging child: the texture must not be rebuilt on
-        // every position tick.
-        child: VideoPlayer(controller),
+              ),
+            ),
+        ],
       ),
     );
   }

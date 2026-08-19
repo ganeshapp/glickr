@@ -67,20 +67,40 @@ class _RemoteMediaState extends ConsumerState<RemoteMedia> {
     final cache = ref.read(mediaCacheServiceProvider);
     final config = ref.read(configNotifierProvider);
     final commitSha = ref.read(syncStateNotifierProvider).commitSha;
+    final item = widget.item;
+
+    // What renders for a video is a poster frame, not the clip: an .mp4 has no
+    // bytes an image decoder can read, so handing the file itself to
+    // Image.file below fails and leaves an empty square with a play glyph on
+    // it. The poster is cached under its own key, so this is a disk read on
+    // every view after the first.
+    final video = item.isVideo;
 
     // Cache first, always, and without touching the network - so an offline
     // launch shows real photos instead of spinners.
-    final hit = await cache.cachedFile(widget.item);
+    final hit =
+        video ? await cache.cachedPoster(item) : await cache.cachedFile(item);
     if (hit != null) return hit;
 
     if (config == null || commitSha == null) return null;
     try {
-      return await cache.fetch(
-        config: config,
-        album: widget.album,
-        item: widget.item,
-        commitSha: commitSha,
-      );
+      // Deriving a poster means downloading the clip, which is slow for a big
+      // one - but the FutureBuilder below holds the placeholder while it runs,
+      // so the grid keeps scrolling either way, and `poster` returns null
+      // rather than throwing when it cannot be made.
+      return video
+          ? await cache.poster(
+            config: config,
+            album: widget.album,
+            item: item,
+            commitSha: commitSha,
+          )
+          : await cache.fetch(
+            config: config,
+            album: widget.album,
+            item: item,
+            commitSha: commitSha,
+          );
     } catch (_) {
       return null;
     }

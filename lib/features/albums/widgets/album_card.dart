@@ -37,10 +37,10 @@ class _AlbumCardState extends State<AlbumCard> {
     final album = widget.album;
     final scheme = context.colorScheme;
 
-    // The cover is the preferred face of the album, but a folder can have
-    // media and no `0.jpg` - the site falls back to the first gallery item
-    // there, so the app does too rather than showing a placeholder for an
-    // album that clearly has photos.
+    // The cover is the album's first IMAGE, so a folder holding only videos
+    // has none - `albums.rb` passes nil for it. Rather than show a placeholder
+    // for an album that clearly has content, fall back to the first item;
+    // the tile renders a video's poster frame perfectly well.
     final MediaItem? preview =
         album.cover ?? (album.gallery.isEmpty ? null : album.gallery.first);
 

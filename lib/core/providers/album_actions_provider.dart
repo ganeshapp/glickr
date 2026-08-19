@@ -58,6 +58,13 @@ class AlbumActions extends _$AlbumActions {
     );
   }
 
+  /// Commit ONE caption, immediately.
+  ///
+  /// Not what the UI should call. Every commit triggers the site's build, and
+  /// captioning an album a photo at a time queued one build per photo. Screens
+  /// stage edits through `PendingCaptionsNotifier` and flush them as a single
+  /// commit; this stays for callers that really do have exactly one caption
+  /// and no album screen to save from.
   Future<ActionResult> setCaption(
     Album album,
     String fileName,

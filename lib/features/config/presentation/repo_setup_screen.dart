@@ -43,12 +43,25 @@ class RepoSetupScreen extends ConsumerStatefulWidget {
   ConsumerState<RepoSetupScreen> createState() => _RepoSetupScreenState();
 }
 
-class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen> {
+class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen>
+    with WidgetsBindingObserver {
   final _search = TextEditingController();
   final _branch = TextEditingController();
   final _siteUrl = TextEditingController();
   final _albumsPath = TextEditingController();
   final _manual = TextEditingController();
+
+  /// Every field on this screen that can end up under the keyboard. They are
+  /// tracked as a group because the screen has to scroll whichever one has
+  /// focus back into view; see [_revealField].
+  final _branchFocus = FocusNode(debugLabel: 'branch');
+  final _siteUrlFocus = FocusNode(debugLabel: 'siteUrl');
+  final _albumsPathFocus = FocusNode(debugLabel: 'albumsPath');
+  final _manualFocus = FocusNode(debugLabel: 'manual');
+
+  /// Anchors the selection panel, which sits below the whole picker, so a tap
+  /// on a repo can bring the verdict about it into view.
+  final _panelKey = GlobalKey();
 
   /// Null until the first load resolves - distinct from an empty list, which
   /// is a real answer with its own (quite different) empty state.
@@ -86,17 +99,74 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen> {
       _albumsPath.text = 'albums';
     }
     _search.addListener(() => setState(() {}));
+    for (final node in _typedFields) {
+      node.addListener(() => _revealField(node));
+    }
+    WidgetsBinding.instance.addObserver(this);
     _loadRepos();
   }
 
+  List<FocusNode> get _typedFields => [
+    _branchFocus,
+    _siteUrlFocus,
+    _albumsPathFocus,
+    _manualFocus,
+  ];
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _search.dispose();
     _branch.dispose();
     _siteUrl.dispose();
     _albumsPath.dispose();
     _manual.dispose();
+    _branchFocus.dispose();
+    _siteUrlFocus.dispose();
+    _albumsPathFocus.dispose();
+    _manualFocus.dispose();
     super.dispose();
+  }
+
+  // ---------------------------------------------------------------- keyboard
+
+  /// The keyboard sliding in is a metrics change, and it lands one or more
+  /// frames after the tap that summoned it.
+  ///
+  /// Focus alone is not enough to go on: at the moment a field is tapped the
+  /// viewport is still full height, so scrolling then decides the field is
+  /// already visible - and it is, right up until the keyboard covers it.
+  @override
+  void didChangeMetrics() {
+    for (final node in _typedFields) {
+      if (node.hasFocus) {
+        _revealField(node);
+        return;
+      }
+    }
+  }
+
+  /// Scroll a focused field into the viewport.
+  ///
+  /// `adjustResize` plus the Scaffold means the viewport itself shrinks by
+  /// `MediaQuery.viewInsetsOf(context).bottom`, so "inside the viewport" and
+  /// "clear of the keyboard" are the same thing, and one scrollable spanning
+  /// the screen is all it takes to get there.
+  void _revealField(FocusNode node) {
+    if (!node.hasFocus) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !node.hasFocus) return;
+      final target = node.context;
+      if (target == null) return;
+      Scrollable.ensureVisible(
+        target,
+        // Halfway up the remaining space, so the helper text under the field
+        // is readable too - these fields are mostly explained by it.
+        alignment: 0.5,
+        duration: context.motion(const Duration(milliseconds: 220)),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   // ------------------------------------------------------------------ data
@@ -148,6 +218,26 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen> {
     // list is the only candidate worth testing.
     match ??= repos.first.looksLikeAlbumRepo ? repos.first : null;
     if (match != null) _select(match);
+  }
+
+  /// Tapping a tile in the picker, as opposed to restoring a saved choice.
+  ///
+  /// The panel that reports what is inside the repo now lives below the whole
+  /// list, so a tap on a repo near the top would otherwise leave the verdict
+  /// off screen. Only user taps scroll: auto-selecting on open should not yank
+  /// the list out from under someone who came here to browse it.
+  void _selectFromPicker(GitHubRepo repo) {
+    _select(repo);
+    // Post-frame because the panel does not exist until this selection builds.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _panelKey.currentContext;
+      if (!mounted || target == null) return;
+      Scrollable.ensureVisible(
+        target,
+        duration: context.motion(const Duration(milliseconds: 260)),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   Future<void> _select(GitHubRepo repo) async {
@@ -414,6 +504,11 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen> {
     };
     final repos = _repos;
     final hasRepos = repos != null && repos.isNotEmpty;
+    // Not padding for the keyboard - the Scaffold has already taken this much
+    // height off the body. It is slack under the last field, so that a field
+    // near the end of the content can still be scrolled up into a viewport the
+    // keyboard has cut down to a couple of hundred pixels.
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
 
     return Scaffold(
       appBar: AppBar(
@@ -433,11 +528,24 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen> {
           top: false,
           child: Column(
             children: [
-              _header(login),
-              _createCard(login),
-              if (hasRepos) _searchField(),
-              Expanded(child: _listArea(login)),
-              _selectionPanel(),
+              // Everything except the button scrolls together. Two scroll
+              // regions - a picker that could move and a panel that could not
+              // - are what left the Advanced fields with nowhere to go once
+              // the keyboard covered them.
+              Expanded(
+                child: CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(child: _header(login)),
+                    SliverToBoxAdapter(child: _createCard(login)),
+                    if (hasRepos) SliverToBoxAdapter(child: _searchField()),
+                    ..._listSlivers(),
+                    SliverToBoxAdapter(child: _selectionPanel()),
+                    SliverToBoxAdapter(child: SizedBox(height: keyboard)),
+                  ],
+                ),
+              ),
+              // Outside the scrollable, so it rides just above the keyboard
+              // instead of being stranded behind it.
               _bottomBar(),
             ],
           ),
@@ -540,66 +648,78 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen> {
     );
   }
 
-  Widget _listArea(String? login) {
-    if (_loadingList && _repos == null) return _skeleton();
+  /// The picker, as slivers - it shares the screen's one scroll view with the
+  /// header above it and the selection panel below it.
+  List<Widget> _listSlivers() {
+    if (_loadingList && _repos == null) return [_skeleton()];
 
     final repos = _repos;
     if (repos == null) {
-      return _escapeHatch(
-        EmptyState(
-          icon: Icons.cloud_off_rounded,
-          title: "Couldn't load your repositories",
-          body: _listError ?? 'Something went wrong reaching GitHub.',
-          action: OutlinedButton.icon(
-            onPressed: _loadRepos,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('Try again'),
+      return [
+        _escapeHatch(
+          EmptyState(
+            icon: Icons.cloud_off_rounded,
+            title: "Couldn't load your repositories",
+            body: _listError ?? 'Something went wrong reaching GitHub.',
+            action: OutlinedButton.icon(
+              onPressed: _loadRepos,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Try again'),
+            ),
           ),
         ),
-      );
+      ];
     }
 
     if (repos.isEmpty) {
-      return _escapeHatch(
-        EmptyState(
-          icon: Icons.folder_off_rounded,
-          title: 'No repositories found',
-          body:
-              "glickr can only see public repositories you can write to. If "
-              "your album repo is private, make it public - the CDN your site "
-              "reads through can't serve a private repo anyway. Or enter it "
-              'by hand below.',
-          action: TextButton.icon(
-            onPressed: _loadRepos,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('Refresh'),
+      return [
+        _escapeHatch(
+          EmptyState(
+            icon: Icons.folder_off_rounded,
+            title: 'No repositories found',
+            body:
+                "glickr can only see public repositories you can write to. If "
+                "your album repo is private, make it public - the CDN your "
+                "site reads through can't serve a private repo anyway. Or "
+                'enter it by hand below.',
+            action: TextButton.icon(
+              onPressed: _loadRepos,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Refresh'),
+            ),
           ),
         ),
-      );
+      ];
     }
 
     final filtered = _filtered;
     if (filtered.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Text(
-            'Nothing matches "${_search.text.trim()}".',
-            textAlign: TextAlign.center,
-            style: context.textTheme.bodyMedium,
+      return [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
+            child: Text(
+              'Nothing matches "${_search.text.trim()}".',
+              textAlign: TextAlign.center,
+              style: context.textTheme.bodyMedium,
+            ),
           ),
         ),
-      );
+      ];
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      itemCount: filtered.length,
-      itemBuilder: (context, index) => StaggeredFadeIn(
-        index: index,
-        child: _repoTile(filtered[index]),
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        sliver: SliverList.builder(
+          itemCount: filtered.length,
+          itemBuilder: (context, index) => StaggeredFadeIn(
+            index: index,
+            child: _repoTile(filtered[index]),
+          ),
+        ),
       ),
-    );
+    ];
   }
 
   /// Manual owner/name entry, shown whenever the picker cannot offer the repo
@@ -607,63 +727,73 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen> {
   /// repo invisible to `/user/repos` but perfectly readable by name, so
   /// without this the user is stuck on a screen with no way forward.
   Widget _escapeHatch(Widget child) {
-    return Column(
-      children: [
-        Expanded(child: child),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Or type it yourself', style: context.textTheme.titleSmall),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _manual,
-                      autocorrect: false,
-                      style: AppTheme.mono(
-                        context,
-                        color: context.colorScheme.onSurface,
-                      ),
-                      decoration: const InputDecoration(
-                        hintText: 'owner/name',
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 12,
+    return SliverFillRemaining(
+      // Takes exactly what is left of the viewport, keyboard included, and
+      // lets the empty state scroll inside it. That keeps the owner/name field
+      // at the bottom of what is visible instead of pushing it below a long
+      // empty state - on a screen with no repos it is the only way forward.
+      hasScrollBody: true,
+      child: Column(
+        children: [
+          Expanded(child: child),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Or type it yourself', style: context.textTheme.titleSmall),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _manual,
+                        focusNode: _manualFocus,
+                        autocorrect: false,
+                        style: AppTheme.mono(
+                          context,
+                          color: context.colorScheme.onSurface,
                         ),
+                        decoration: const InputDecoration(
+                          hintText: 'owner/name',
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 12,
+                          ),
+                        ),
+                        onSubmitted: (_) => _lookupManual(),
                       ),
-                      onSubmitted: (_) => _lookupManual(),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  OutlinedButton(
-                    onPressed: _lookingUp ? null : _lookupManual,
-                    child: _lookingUp
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Find'),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 10),
+                    OutlinedButton(
+                      onPressed: _lookingUp ? null : _lookupManual,
+                      child: _lookingUp
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Find'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _skeleton() {
-    return ListView.builder(
+    return SliverPadding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      itemCount: 6,
-      itemBuilder: (context, index) => const Padding(
-        padding: EdgeInsets.only(bottom: 10),
-        child: GlickrShimmer(child: ShimmerBlock(height: 66, radius: 14)),
+      sliver: SliverList.builder(
+        itemCount: 6,
+        itemBuilder: (context, index) => const Padding(
+          padding: EdgeInsets.only(bottom: 10),
+          child: GlickrShimmer(child: ShimmerBlock(height: 66, radius: 14)),
+        ),
       ),
     );
   }
@@ -697,7 +827,7 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen> {
           side: BorderSide(color: borderColor, width: selected ? 1.8 : 1),
         ),
         child: InkWell(
-          onTap: () => _select(repo),
+          onTap: () => _selectFromPicker(repo),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
@@ -764,80 +894,75 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen> {
     );
   }
 
-  /// Everything the user needs to judge the selected repo, docked directly
-  /// above the button that commits it - the picker can be scrolled anywhere by
-  /// then, so this is the only place the decision is actually visible.
+  /// Everything the user needs to judge the selected repo, sitting between the
+  /// picker and the button that commits it.
+  ///
+  /// It is part of the screen's one scroll view rather than a bounded box of
+  /// its own: bounded, it could not lift its own fields above the keyboard,
+  /// and the picker above it could not scroll them there either.
   Widget _selectionPanel() {
     final repo = _selected;
     if (repo == null) return const SizedBox.shrink();
     final colors = context.appColors;
     final result = _check;
 
-    return ConstrainedBox(
-      // Bounded so an expanded Advanced section, or a keyboard, steals height
-      // from the picker instead of overflowing.
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.45,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Text(
-                repo.fullName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTheme.mono(
-                  context,
-                  size: 13,
-                  weight: FontWeight.w600,
-                  color: context.colorScheme.onSurface,
-                ),
-              ),
+    return Column(
+      key: _panelKey,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          child: Text(
+            repo.fullName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTheme.mono(
+              context,
+              size: 13,
+              weight: FontWeight.w600,
+              color: context.colorScheme.onSurface,
             ),
-            if (_checking)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Row(
-                  children: [
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Looking inside this repo',
-                      style: context.textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              )
-            else if (result != null)
-              ..._checkBanners(result, colors),
-            _albumRootRow(),
-            if (!repo.canPush)
-              StatusBanner(
-                icon: Icons.edit_off_rounded,
-                tint: colors.warning,
-                message:
-                    "You can't push to this repo, so uploads will fail when "
-                    'they try to commit.',
-              ),
-            if (repo.isPrivate)
-              StatusBanner(
-                icon: Icons.lock_rounded,
-                tint: colors.warning,
-                message:
-                    "This repo is private. The CDN your site uses can't read "
-                    "private repos, so albums won't appear on your website.",
-              ),
-            _advanced(repo),
-          ],
+          ),
         ),
-      ),
+        if (_checking)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Looking inside this repo',
+                  style: context.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          )
+        else if (result != null)
+          ..._checkBanners(result, colors),
+        _albumRootRow(),
+        if (!repo.canPush)
+          StatusBanner(
+            icon: Icons.edit_off_rounded,
+            tint: colors.warning,
+            message:
+                "You can't push to this repo, so uploads will fail when "
+                'they try to commit.',
+          ),
+        if (repo.isPrivate)
+          StatusBanner(
+            icon: Icons.lock_rounded,
+            tint: colors.warning,
+            message:
+                "This repo is private. The CDN your site uses can't read "
+                "private repos, so albums won't appear on your website.",
+          ),
+        _advanced(repo),
+      ],
     );
   }
 
@@ -962,9 +1087,16 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen> {
         expansionAnimationStyle: AnimationStyle(
           duration: context.motion(const Duration(milliseconds: 200)),
         ),
+        // Expanding the disclosure adds height below everything else, so the
+        // fields land at the very bottom of the scroll - exactly where the
+        // keyboard covers them. Their focus nodes scroll them back up.
+        onExpansionChanged: (expanded) {
+          if (!expanded) FocusScope.of(context).unfocus();
+        },
         children: [
           TextField(
             controller: _branch,
+            focusNode: _branchFocus,
             autocorrect: false,
             style: AppTheme.mono(
               context,
@@ -987,6 +1119,7 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen> {
           const SizedBox(height: 12),
           TextField(
             controller: _siteUrl,
+            focusNode: _siteUrlFocus,
             autocorrect: false,
             keyboardType: TextInputType.url,
             decoration: const InputDecoration(
@@ -999,6 +1132,7 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen> {
           const SizedBox(height: 12),
           TextField(
             controller: _albumsPath,
+            focusNode: _albumsPathFocus,
             autocorrect: false,
             decoration: const InputDecoration(
               labelText: 'Album page URL path',
