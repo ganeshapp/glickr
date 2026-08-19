@@ -62,13 +62,26 @@ bool isVideoName(String name) => kVideoExtensions.contains(extensionOf(name));
 /// True when [name] is media the site will render.
 bool isRenderableName(String name) => isImageName(name) || isVideoName(name);
 
-/// True when [name] is the album cover.
+/// The album's cover: the FIRST image in display order, or null when the album
+/// has no images at all.
 ///
-/// The cover is the file whose basename is exactly `0`, and it must be an
-/// IMAGE: the site looks for it among image extensions only, so a `0.mp4`
-/// would simply never be found. A video chosen as the cover therefore has a
-/// still frame extracted and written out as a real `0.jpg`.
-bool isCoverName(String name) => stemOf(name) == '0' && isImageName(name);
+/// There is no separate cover file. There used to be - a dedicated `0.jpg` -
+/// and it meant the cover was stored twice, once as `0.jpg` and once numbered,
+/// so a 23-photo album published 24 files with the cover appearing in its own
+/// album twice and a caption attaching to only one of the two copies.
+///
+/// Since files sort by name, "first image" is the same rule with none of that.
+/// It is also backwards compatible: an older album that still contains a
+/// `0.jpg` sorts it first anyway, so it stays the cover.
+///
+/// Images only - a video cannot be a cover, because the site needs something
+/// it can put in an `<img>`.
+String? coverNameOf(Iterable<String> names) {
+  for (final name in sortForDisplay(names)) {
+    if (isImageName(name)) return name;
+  }
+  return null;
+}
 
 /// The album title the site will display, derived from the folder name.
 ///

@@ -32,6 +32,9 @@ Future<void> main() async {
   await Hive.openBox<Map>('upload_batches');
   await Hive.openBox<Map>('upload_items');
   await Hive.openBox<String>('app_settings');
+  // Caption edits staged but not yet committed, so closing the app with
+  // unsaved captions keeps them.
+  await Hive.openBox<Map>('pending_captions');
 
   runApp(const ProviderScope(child: GlickrApp()));
 }

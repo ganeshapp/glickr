@@ -228,16 +228,16 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
           : 'This removes it from the album on GitHub. ',
     )..write('This cannot be undone from the app.');
 
-    // Deleting the cover leaves the album without one until a new one is set,
-    // and that is not obvious from a grid where the cover looks like every
-    // other tile.
-    if (selected.any((i) => i.isCover)) {
+    // Deleting the cover promotes the next photo to cover, since the cover is
+    // simply whichever image sorts first. Worth saying: from a grid where the
+    // cover looks like every other tile, that consequence is invisible.
+    if (selected.any(album.isCover)) {
       buffer.write(
         single == null
-            ? "\n\nOne of these is the cover, so the album won't have one "
-                  'until you pick a new one.'
-            : "\n\nThis is the album cover, so the album won't have one until "
-                  'you pick a new one.',
+            ? '\n\nOne of these is the cover, so the next photo becomes the '
+                  'new one.'
+            : '\n\nThis is the album cover, so the next photo becomes the '
+                  'new one.',
       );
     }
 
@@ -690,7 +690,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     // Shown DISABLED rather than hidden when the selection is not a single
     // photo: a control that disappears takes its own rule with it, and the user
     // is left guessing why the cover cannot be changed.
-    final alreadyCover = single?.isCover ?? false;
+    final alreadyCover = single != null && album.isCover(single);
     final canSetCover = single != null && single.isImage && !alreadyCover;
     final coverTooltip = alreadyCover
         ? 'This one is already the cover'

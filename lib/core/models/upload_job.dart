@@ -168,10 +168,6 @@ class UploadBatch {
   final int attempts;
   final String? error;
 
-  /// The item whose compressed copy becomes `0.jpg`, when the user picked a
-  /// cover for a new album.
-  final String? coverItemId;
-
   const UploadBatch({
     required this.id,
     required this.albumFolder,
@@ -182,7 +178,6 @@ class UploadBatch {
     this.state = UploadBatchState.queued,
     this.attempts = 0,
     this.error,
-    this.coverItemId,
   });
 
   QualityPreset get preset => QualityPreset.fromName(qualityPresetName);
@@ -208,7 +203,6 @@ class UploadBatch {
       state: state ?? this.state,
       attempts: attempts ?? this.attempts,
       error: clearError ? null : (error ?? this.error),
-      coverItemId: coverItemId,
     );
   }
 
@@ -222,7 +216,6 @@ class UploadBatch {
     'state': state,
     'attempts': attempts,
     'error': error,
-    'coverItemId': coverItemId,
   };
 
   static UploadBatch? fromMap(Map<dynamic, dynamic> map) {
@@ -241,7 +234,6 @@ class UploadBatch {
       state: map['state'] as String? ?? UploadBatchState.queued,
       attempts: (map['attempts'] as num?)?.toInt() ?? 0,
       error: map['error'] as String?,
-      coverItemId: map['coverItemId'] as String?,
     );
   }
 }

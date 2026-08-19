@@ -97,7 +97,7 @@ class MediaTile extends StatelessWidget {
                         DecoratedBox(
                           decoration: AppTheme.photoScrim(stop: 0.62),
                         ),
-                      if (item.isCover)
+                      if (album.isCover(item))
                         const Positioned(top: 5, left: 5, child: _CoverChip()),
                       if (item.isVideo)
                         const Positioned(

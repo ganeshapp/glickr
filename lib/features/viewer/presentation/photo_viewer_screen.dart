@@ -392,7 +392,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
       'This deletes ${item.name} from the album on GitHub, and from your '
       'website once it rebuilds. This cannot be undone from the app.',
     );
-    if (item.isCover) {
+    if (album.isCover(item)) {
       buffer.write(
         "\n\nIt's the album cover too, so the album won't have one until you "
         'set another.',
@@ -740,11 +740,11 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
 
   Widget _topBar(Album album, List<MediaItem> items, int index) {
     final item = items[index];
-    final canSetCover = item.isImage && !item.isCover;
+    final canSetCover = item.isImage && !album.isCover(item);
     final coverBlocked =
         item.isVideo
             ? 'Only a photo can be the album cover.'
-            : (item.isCover ? "This one already is the cover." : null);
+            : (album.isCover(item) ? "This one already is the cover." : null);
 
     return Container(
       decoration: BoxDecoration(
@@ -1269,7 +1269,7 @@ class _DetailsSheet extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _DetailRow(label: 'Album', value: album.folder, mono: true),
-            if (item.isCover) ...[
+            if (album.isCover(item)) ...[
               const SizedBox(height: 18),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,

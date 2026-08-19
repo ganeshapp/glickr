@@ -216,46 +216,61 @@ void main() {
     });
   });
 
-  group('cover detection', () {
-    test('matches the site: basename 0, images only', () {
-      expect(isCoverName('0.jpg'), isTrue);
-      expect(isCoverName('0.png'), isTrue);
-      expect(isCoverName('0.webp'), isTrue);
+  group('coverNameOf', () {
+    test('is the first image in sort order', () {
+      expect(
+        coverNameOf(const ['0003.jpg', '0001.jpg', '0002.jpg']),
+        '0001.jpg',
+      );
     });
 
-    test('a video is never a cover', () {
-      // pick_cover searches IMAGE_EXT only, so 0.mp4 would simply never be
-      // found - which is why a video-derived cover is written out as 0.jpg.
-      expect(isCoverName('0.mp4'), isFalse);
-      expect(isCoverName('0.mov'), isFalse);
+    test('skips a leading video - a cover has to go in an img tag', () {
+      expect(
+        coverNameOf(const ['0001.mp4', '0002.jpg', '0003.jpg']),
+        '0002.jpg',
+      );
     });
 
-    test('does not match numbers that merely start with zero', () {
-      expect(isCoverName('0001.jpg'), isFalse);
-      expect(isCoverName('00.jpg'), isFalse);
+    test('ignores sidecars', () {
+      expect(
+        coverNameOf(const ['album.json', 'album.md', '0001.jpg']),
+        '0001.jpg',
+      );
+    });
+
+    test('is null for an album with no images at all', () {
+      expect(coverNameOf(const ['0001.mp4']), isNull);
+      expect(coverNameOf(const []), isNull);
+    });
+
+    test('a legacy 0.jpg is still the cover, because it still sorts first', () {
+      // Albums published before the dedicated cover file was dropped keep
+      // working untouched - 0 sorts ahead of 0001, so it is simply the first
+      // image.
+      expect(
+        coverNameOf(const ['0001.jpg', '0.jpg', '0002.jpg']),
+        '0.jpg',
+      );
     });
   });
 
   group('galleryOrder', () {
-    test('sorts images and videos together, cover FIRST', () {
-      // 0.jpg is the cover AND the album's first photo. It sorts first by
-      // name, which is where it belongs - excluding it would make the cover
-      // vanish from the album it covers, and leave no way to caption or
-      // delete it.
+    test('sorts images and videos into one list', () {
       expect(
-        galleryOrder(const [
-          '0002.mp4',
-          '0.jpg',
-          '0001.jpg',
-          '0003.jpg',
-          'album.md',
-        ]),
-        ['0.jpg', '0001.jpg', '0002.mp4', '0003.jpg'],
+        galleryOrder(const ['0002.mp4', '0001.jpg', '0003.jpg', 'album.md']),
+        ['0001.jpg', '0002.mp4', '0003.jpg'],
+      );
+    });
+
+    test('nothing is excluded - the cover is just the first item', () {
+      expect(
+        galleryOrder(const ['0002.jpg', '0001.jpg']),
+        ['0001.jpg', '0002.jpg'],
       );
     });
 
     test('a one-photo album shows that photo', () {
-      expect(galleryOrder(const ['0.jpg']), ['0.jpg']);
+      expect(galleryOrder(const ['0001.jpg']), ['0001.jpg']);
     });
 
     test('drops sidecars and unknown extensions', () {

@@ -118,6 +118,17 @@ class UploadService {
     String? coverAssetId,
   }) async {
     final batchId = _uuid.v4();
+
+    // The cover is not a separate file - it is simply the album's first image.
+    // So "make this the cover" means "give this one the lowest number", which
+    // is done by ordering the assets here rather than by tagging one of them.
+    // That is the whole mechanism; nothing downstream knows about covers.
+    final ordered = [...assets];
+    if (coverAssetId != null) {
+      final index = ordered.indexWhere((a) => a.id == coverAssetId);
+      if (index > 0) ordered.insert(0, ordered.removeAt(index));
+    }
+
     final existingNames = existingAlbum?.items.map((i) => i.name) ?? const [];
     final pad = padWidthFor(existingNames);
     var next = nextSequenceNumber(
@@ -127,7 +138,7 @@ class UploadService {
     );
 
     final items = <UploadItem>[];
-    for (final asset in assets) {
+    for (final asset in ordered) {
       final ext = targetExtensionFor(asset);
       items.add(
         UploadItem(
@@ -142,19 +153,6 @@ class UploadService {
       next++;
     }
 
-    // The cover is derived from an asset the user picked, so it is identified
-    // by item id rather than by filename - the filename may still be rewritten
-    // if the branch moves before this batch lands.
-    String? coverItemId;
-    if (coverAssetId != null) {
-      for (var i = 0; i < items.length; i++) {
-        if (assets[i].id == coverAssetId) {
-          coverItemId = items[i].id;
-          break;
-        }
-      }
-    }
-
     final batch = UploadBatch(
       id: batchId,
       albumFolder: albumFolder,
@@ -162,7 +160,6 @@ class UploadService {
       isNewAlbum: isNewAlbum,
       blurb: blurb,
       qualityPresetName: preset.name,
-      coverItemId: coverItemId,
     );
 
     await _queue.putJob(batch, items);
@@ -476,6 +473,15 @@ class UploadService {
       highWaterMark: captions.next,
     );
 
+    // The number space is shared across extensions - the site sorts one merged
+    // list - so allocation tracks NUMBERS, not filenames. Checking names would
+    // happily hand out 0002.jpg next to an existing 0002.mp4.
+    final usedNumbers = <int>{
+      for (final existing in existingNames)
+        if (parseSequenceNumber(existing) != null)
+          parseSequenceNumber(existing)!,
+    };
+
     final entries = <TreeEntry>[];
     for (final item in items) {
       // Finding this item's blob already under the album prefix means these
@@ -489,27 +495,29 @@ class UploadService {
       if (publishedShas.contains(item.blobSha)) continue;
 
       final ext = p.extension(item.targetName);
-      var name = item.targetName;
-      // Only renumber if the reserved name is genuinely taken, so the common
-      // case keeps the numbers the user already saw in the review sheet.
-      if (existingNames.contains(name) ||
-          (parseSequenceNumber(name) ?? 0) < next) {
-        name = sequenceFilename(next, ext, pad: pad);
+      // Allocated from the live counter rather than the name reserved at
+      // enqueue time, since a name reserved before a rebase may be taken by
+      // now. The picker shows selection ORDER, not filenames, so nothing the
+      // user saw depends on the reserved value.
+      //
+      // There is deliberately no cover handling here. The cover is simply
+      // whichever image sorts first, so ordering the assets at enqueue time is
+      // the entire mechanism. Writing a separate `0.jpg` - which is what this
+      // used to do - stored the cover twice, so an album published one more
+      // file than the user picked and showed its cover twice, with the caption
+      // attached to only one of the two copies.
+      while (usedNumbers.contains(next)) {
+        next++;
       }
-      next = (parseSequenceNumber(name) ?? next) + 1;
+      final name = sequenceFilename(next, ext, pad: pad);
+      usedNumbers.add(next);
+      next++;
       existingNames.add(name);
 
       entries.add(TreeEntry.file('$prefix$name', item.blobSha!));
       final caption = item.caption;
       if (caption != null && caption.trim().isNotEmpty) {
         captions = captions.withCaption(name, caption);
-      }
-
-      if (batch.coverItemId == item.id && isImageName(name)) {
-        // The cover is a second copy under the reserved name `0.jpg`. It is
-        // excluded from the gallery by the site, so it needs no number, and
-        // sharing the blob costs nothing extra in the repo.
-        entries.add(TreeEntry.file('${prefix}0$ext', item.blobSha!));
       }
     }
 

@@ -85,25 +85,53 @@ class AlbumWriteService {
     );
   }
 
-  /// Set or clear one item's caption in `album.json`.
+  /// Set or clear captions for one or more items, as a SINGLE commit.
   ///
-  /// The captions file is re-read from the repo inside the commit builder
-  /// rather than written from local state, so a caption another device added
-  /// in the meantime survives instead of being clobbered.
+  /// Plural on purpose. Every commit to the album repo triggers the site's
+  /// build, so committing one caption at a time meant captioning a 23-photo
+  /// album queued 23 builds - the app effectively DDoSing its own site. The UI
+  /// stages caption edits locally and flushes them through here in one go.
+  ///
+  /// A null value clears that item's caption.
+  ///
+  /// The sidecar is re-read from the repo inside the commit builder rather
+  /// than written from local state, so a caption another device added in the
+  /// meantime survives instead of being clobbered.
+  Future<CommitOutcome> setCaptions({
+    required AppConfig config,
+    required Album album,
+    required Map<String, String?> captions,
+  }) {
+    if (captions.isEmpty) {
+      throw ArgumentError('setCaptions needs at least one entry');
+    }
+    return _commits.commit(
+      config: config,
+      message: captions.length == 1
+          ? 'glickr: caption ${captions.keys.first} in ${album.folder}'
+          : 'glickr: caption ${captions.length} items in ${album.folder}',
+      buildEntries: (tree) async {
+        var current = await _readCaptions(config, tree, album.folder);
+        for (final entry in captions.entries) {
+          current = current.withCaption(entry.key, entry.value);
+        }
+        return _captionEntries(config, tree, album.folder, current);
+      },
+    );
+  }
+
+  /// Convenience for a single caption. Prefer [setCaptions] from the UI so
+  /// several edits share one commit and one site build.
   Future<CommitOutcome> setCaption({
     required AppConfig config,
     required Album album,
     required String fileName,
     required String? caption,
   }) {
-    return _commits.commit(
+    return setCaptions(
       config: config,
-      message: 'glickr: caption $fileName in ${album.folder}',
-      buildEntries: (tree) async {
-        final captions = await _readCaptions(config, tree, album.folder);
-        final updated = captions.withCaption(fileName, caption);
-        return _captionEntries(config, tree, album.folder, updated);
-      },
+      album: album,
+      captions: {fileName: caption},
     );
   }
 
@@ -196,18 +224,18 @@ class AlbumWriteService {
     );
   }
 
-  /// Make an existing album item the cover.
+  /// Make an existing album item the cover, by swapping it with the album's
+  /// current first image.
   ///
-  /// The site's cover is whichever image is named `0`, so this is a rename,
-  /// and git has no rename primitive - it is a delete plus an add of the same
-  /// blob. Three things have to happen together or the album ends up
-  /// inconsistent, so they share one commit:
-  ///   1. the current `0.*` moves back into the numbered sequence;
-  ///   2. the chosen file becomes `0.<ext>`;
-  ///   3. `album.json` follows both renames so captions stay attached.
+  /// The cover is not a separate file - it is whichever image sorts first - so
+  /// "set as cover" means "make this the first photo". That is a swap of two
+  /// names, which git expresses as four tree entries against the same base:
+  /// both paths are rewritten in one commit, so there is no intermediate state
+  /// where a name is taken twice, and no bytes move because blob shas are
+  /// content addresses.
   ///
-  /// Only an image can be a cover: the site's lookup is scoped to image
-  /// extensions, so a `0.mp4` would simply never be found.
+  /// Only two files change, so every other photo's URL survives - which is why
+  /// this is a swap rather than a renumber of the whole album.
   Future<CommitOutcome> setCoverFromExisting({
     required AppConfig config,
     required Album album,
@@ -219,7 +247,7 @@ class AlbumWriteService {
 
     return _commits.commit(
       config: config,
-      message: 'glickr: set cover for ${album.folder}',
+      message: 'glickr: make $fileName the cover of ${album.folder}',
       buildEntries: (tree) async {
         final prefix = '${config.albumFolderPath(album.folder)}/';
         final inFolder = {
@@ -230,44 +258,37 @@ class AlbumWriteService {
 
         final chosen = inFolder[fileName];
         if (chosen == null) return const <TreeEntry>[];
-        if (isCoverName(fileName)) return const <TreeEntry>[]; // already cover
+
+        final currentCover = coverNameOf(inFolder.keys);
+        // Already first: nothing to do, and returning an empty list makes the
+        // commit a no-op rather than an empty commit.
+        if (currentCover == null || currentCover == fileName) {
+          return const <TreeEntry>[];
+        }
+        final incumbent = inFolder[currentCover]!;
 
         var captions = await _readCaptions(config, tree, album.folder);
-        final entries = <TreeEntry>[];
-        final pad = padWidthFor(inFolder.keys);
+        final chosenCaption = captions.captionFor(fileName);
+        final incumbentCaption = captions.captionFor(currentCover);
 
-        // Step 1: the outgoing cover rejoins the sequence at a number that
-        // has never been used, so it lands at the end rather than colliding.
-        final outgoing = inFolder.keys.where(isCoverName).toList();
-        var nextNumber = nextSequenceNumber(
-          existingNames: inFolder.keys,
-          highWaterMark: captions.next,
-        );
-        for (final old in outgoing) {
-          final node = inFolder[old]!;
-          final renamed = sequenceFilename(
-            nextNumber,
-            extensionOf(old),
-            pad: pad,
-          );
-          nextNumber++;
-          entries.add(TreeEntry.delete(node.path, mode: node.mode));
-          entries.add(
-            TreeEntry.file('$prefix$renamed', node.sha, mode: node.mode),
-          );
-          captions = captions.renamed(old, renamed);
-        }
+        final entries = <TreeEntry>[
+          TreeEntry.file(
+            '$prefix$currentCover',
+            chosen.sha,
+            mode: chosen.mode,
+          ),
+          TreeEntry.file(
+            '$prefix$fileName',
+            incumbent.sha,
+            mode: incumbent.mode,
+          ),
+        ];
 
-        // Step 2: the chosen file becomes the cover, keeping its extension.
-        final coverName = '0${extensionOf(fileName)}';
-        entries.add(TreeEntry.delete(chosen.path, mode: chosen.mode));
-        entries.add(
-          TreeEntry.file('$prefix$coverName', chosen.sha, mode: chosen.mode),
-        );
-        captions = captions.renamed(fileName, coverName);
-
-        // Step 3: album.json follows, in this same commit.
-        captions = captions.withNext(nextNumber);
+        // The captions swap with the photos - a caption describes a picture,
+        // not a filename.
+        captions = captions
+            .withCaption(currentCover, chosenCaption.isEmpty ? null : chosenCaption)
+            .withCaption(fileName, incumbentCaption.isEmpty ? null : incumbentCaption);
         entries.addAll(
           await _captionEntries(config, tree, album.folder, captions),
         );

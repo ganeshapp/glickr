@@ -25,6 +25,9 @@ class _FakeGit implements GitDataService {
   int updateRefCalls = 0;
   int createBlobCalls = 0;
   List<TreeEntry> committedEntries = const [];
+  /// Decoded text of every blob written, so a test can assert on what the
+  /// captions sidecar actually says rather than only that one was written.
+  List<String> writtenBlobs = [];
 
   @override
   Future<RefInfo> getHead(
@@ -57,6 +60,7 @@ class _FakeGit implements GitDataService {
     void Function(int sent, int total)? onProgress,
   }) async {
     createBlobCalls++;
+    writtenBlobs.add(utf8.decode(bytes, allowMalformed: true));
     return 'sidecar-blob-$createBlobCalls';
   }
 
@@ -223,6 +227,65 @@ void main() {
       'cycling_trip/0002.jpg',
       'cycling_trip/0003.jpg',
       'cycling_trip/album.json',
+    ]);
+  });
+
+  test('publishes exactly one file per selected item', () async {
+    // Regression: a dedicated cover file meant the first photo was written
+    // BOTH as 0.jpg and under a number, so a 23-photo album published 24 files
+    // with the cover appearing in its own album twice - and, because the
+    // caption was keyed on one of the two names, captioned on only one.
+    final batch = batchFor('korea_social_life');
+    await queue.putJob(batch, uploadedItems(3));
+
+    final outcome = await service.run(batch, config: config);
+
+    expect(outcome, isA<UploadCommitted>());
+    final media = git.committedEntries
+        .map((e) => e.path)
+        .where((path) => !path.endsWith('.json'))
+        .toList();
+    expect(media, [
+      'korea_social_life/0001.jpg',
+      'korea_social_life/0002.jpg',
+      'korea_social_life/0003.jpg',
+    ]);
+    // Every blob committed exactly once - no file is published twice.
+    final shas = git.committedEntries.map((e) => e.sha).toList();
+    expect(shas.toSet().length, shas.length);
+  });
+
+  test('captions key on the name the item actually received', () async {
+    final batch = batchFor('korea_social_life');
+    await queue.putJob(batch, uploadedItems(2));
+
+    await service.run(batch, config: config);
+
+    final sidecar = git.writtenBlobs.last;
+    expect(sidecar, contains('"0001.jpg": "caption 1"'));
+    expect(sidecar, contains('"0002.jpg": "caption 2"'));
+  });
+
+  test('numbering leaves no gaps when appending to an album', () async {
+    final batch = batchFor('korea_social_life');
+    await queue.putJob(batch, uploadedItems(2));
+    git.nodes = [
+      blob('korea_social_life/0001.jpg', 'already-there-1'),
+      blob('korea_social_life/0002.mp4', 'already-there-2'),
+    ];
+
+    await service.run(batch, config: config);
+
+    final media = git.committedEntries
+        .map((e) => e.path)
+        .where((path) => !path.endsWith('.json'))
+        .toList();
+    // Continues past BOTH existing numbers, even though one is a .mp4 - the
+    // number space is shared across extensions, so checking filenames rather
+    // than numbers would have handed out 0002.jpg beside the existing 0002.mp4.
+    expect(media, [
+      'korea_social_life/0003.jpg',
+      'korea_social_life/0004.jpg',
     ]);
   });
 

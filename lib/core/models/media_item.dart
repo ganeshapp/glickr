@@ -54,7 +54,6 @@ class MediaItem {
   String get ext => extensionOf(name);
   bool get isVideo => isVideoName(name);
   bool get isImage => isImageName(name);
-  bool get isCover => isCoverName(name);
 
   /// Sequence number glickr assigned, or null for a legacy/hand-added file.
   int? get number => parseSequenceNumber(name);

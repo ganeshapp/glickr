@@ -91,13 +91,16 @@ class Album extends HiveObject {
   /// The URL path segment on the site, e.g. `cycling-trip`.
   String get slug => jekyllSlugify(folder);
 
-  /// The `0.*` image, or null when the album has no cover set.
+  /// The album's cover: its first image in display order.
+  ///
+  /// Derived, not stored, and not a separate file - see [coverNameOf].
   MediaItem? get cover {
-    for (final item in items) {
-      if (item.isCover) return item;
-    }
-    return null;
+    final name = coverNameOf(items.map((i) => i.name));
+    return name == null ? null : itemNamed(name);
   }
+
+  /// True when [item] is the one being used as this album's cover.
+  bool isCover(MediaItem item) => cover?.name == item.name;
 
   /// Items in the order the website renders them: sorted by filename with the
   /// cover excluded (falling back to everything when that would empty the
