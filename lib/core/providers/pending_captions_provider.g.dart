@@ -35,7 +35,7 @@ final pendingCaptionsBoxProvider = Provider<Box<Map>>.internal(
 // ignore: unused_element
 typedef PendingCaptionsBoxRef = ProviderRef<Box<Map>>;
 String _$pendingCaptionsNotifierHash() =>
-    r'4d7d52270f37514ce9aa4dcfe2c1de6f7ae36b31';
+    r'6c1c64585a6c8f0ce0d5bcdd3d8c1e694d20e790';
 
 /// See also [PendingCaptionsNotifier].
 @ProviderFor(PendingCaptionsNotifier)

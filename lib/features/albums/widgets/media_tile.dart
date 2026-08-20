@@ -13,6 +13,13 @@ import '../../../core/widgets/remote_media.dart';
 class MediaTile extends StatelessWidget {
   final Album album;
   final MediaItem item;
+
+  /// The caption to SHOW, which is not always `item.caption`: an edit typed in
+  /// the viewer is staged on the device until the album is saved, and the tile
+  /// behind it has to reflect that immediately. Resolved by the screen through
+  /// `PendingCaptionsNotifier.captionFor`, so this stays a dumb widget.
+  final String caption;
+
   final bool isSelected;
 
   /// True while ANY tile is selected. Drives the empty ring on unselected
@@ -27,6 +34,7 @@ class MediaTile extends StatelessWidget {
     super.key,
     required this.album,
     required this.item,
+    required this.caption,
     required this.isSelected,
     required this.selectionMode,
     required this.onTap,
@@ -37,10 +45,11 @@ class MediaTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = context.colorScheme;
     final duration = context.motion(const Duration(milliseconds: 140));
+    final hasCaption = caption.trim().isNotEmpty;
 
     // One scrim under both bottom-edge badges rather than a small pad behind
     // each: two overlapping gradients on the same corner read as a smudge.
-    final needsScrim = item.isVideo || item.hasCaption;
+    final needsScrim = item.isVideo || hasCaption;
 
     return Semantics(
       container: true,
@@ -49,9 +58,7 @@ class MediaTile extends StatelessWidget {
       selected: isSelected,
       // A caption, when it exists, IS the alt text - that is what captions are
       // for. Only fall back to the media kind when there is nothing to read.
-      label: item.caption.isNotEmpty
-          ? item.caption
-          : (item.isVideo ? 'Video' : 'Photo'),
+      label: hasCaption ? caption : (item.isVideo ? 'Video' : 'Photo'),
       onTap: onTap,
       onLongPress: onLongPress,
       // Excluded so the "Cover" chip's own text can't be appended to a
@@ -107,7 +114,7 @@ class MediaTile extends StatelessWidget {
                         ),
                       // Which items are annotated, visible without opening any
                       // of them.
-                      if (item.hasCaption)
+                      if (hasCaption)
                         const Positioned(
                           right: 6,
                           bottom: 6,

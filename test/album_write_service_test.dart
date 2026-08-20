@@ -130,11 +130,10 @@ void main() {
       final git = _StubGit(_withSidecar); // SJ is not in blobs: fetch throws
 
       await expectLater(
-        _service(git).setCaption(
+        _service(git).setCaptions(
           config: config,
           album: album,
-          fileName: '0002.jpg',
-          caption: 'new text',
+          captions: const {'0002.jpg': 'new text'},
         ),
         throwsA(isA<CaptionsUnreadableException>()),
       );
@@ -182,11 +181,10 @@ void main() {
       final git = _StubGit(_withSidecar)..blobs['SJ'] = '';
 
       await expectLater(
-        _service(git).setCaption(
+        _service(git).setCaptions(
           config: config,
           album: album,
-          fileName: '0002.jpg',
-          caption: 'new text',
+          captions: const {'0002.jpg': 'new text'},
         ),
         throwsA(isA<CaptionsUnreadableException>()),
       );
@@ -198,11 +196,10 @@ void main() {
     test('keeps the other captions and the high-water mark', () async {
       final git = _StubGit(_withSidecar)..blobs['SJ'] = _threeCaptions;
 
-      final outcome = await _service(git).setCaption(
+      final outcome = await _service(git).setCaptions(
         config: config,
         album: album,
-        fileName: '0002.jpg',
-        caption: 'new text',
+        captions: const {'0002.jpg': 'new text'},
       );
 
       expect(outcome, isA<CommitApplied>());
@@ -218,11 +215,10 @@ void main() {
       final git = _StubGit(_withSidecar)
         ..blobs['SJ'] = '{"next":1,"items":{"0001.jpg":"only one"}}';
 
-      await _service(git).setCaption(
+      await _service(git).setCaptions(
         config: config,
         album: album,
-        fileName: '0001.jpg',
-        caption: null,
+        captions: const {'0001.jpg': null},
       );
 
       final entry = _entryFor(git.committed, 'trip/album.json');
@@ -237,11 +233,10 @@ void main() {
       TreeNode(path: 'trip/0001.jpg', sha: 'B1', type: 'blob', size: 1000),
     ]);
 
-    await _service(git).setCaption(
+    await _service(git).setCaptions(
       config: config,
       album: album,
-      fileName: '0001.jpg',
-      caption: 'first caption',
+      captions: const {'0001.jpg': 'first caption'},
     );
 
     expect(_entryFor(git.committed, 'trip/album.json')?.sha, isNotNull);

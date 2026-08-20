@@ -175,12 +175,22 @@ class _AlbumByFolderProviderElement extends AutoDisposeProviderElement<Album?>
   String get folder => (origin as AlbumByFolderProvider).folder;
 }
 
-String _$albumActionsHash() => r'b92c4dd2468e241be543e8eb12740340c76a983a';
+String _$albumActionsHash() => r'aeaa1a1a83d0635f1c2db28ae7f98c364dd63721';
 
 /// Every album mutation the UI can trigger.
 ///
 /// Each one is a single git commit, and each one refreshes the album list
 /// afterwards so the local cache and the repo cannot drift.
+///
+/// Each one also keeps STAGED captions in step with what it just did, HERE
+/// rather than in the screen that called it. A staged caption is filed under
+/// (folder, filename), so a delete, a rename or a cover swap moves the ground
+/// under it - and when that bookkeeping lived in the screens, the album screen
+/// did it and the album LIST silently did not: renaming from the list stranded
+/// unsaved captions on a dead folder, and deleting from it left them to
+/// reattach to the next album that took the name. There is one door per
+/// mutation and it is this class; a caller cannot forget what it never had to
+/// remember.
 ///
 /// Copied from [AlbumActions].
 @ProviderFor(AlbumActions)

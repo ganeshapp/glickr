@@ -7,6 +7,7 @@ import '../../../core/models/github_repo.dart';
 import '../../../core/providers/albums_provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/config_provider.dart';
+import '../../../core/providers/pending_captions_provider.dart';
 import '../../../core/providers/services_provider.dart';
 import '../../../core/providers/upload_provider.dart';
 import '../../../core/services/dio_client.dart';
@@ -368,6 +369,11 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen>
       // now.
       await ref.read(albumsNotifierProvider.notifier).clearCache();
       await ref.read(uploadQueueNotifierProvider.notifier).clear();
+      // Staged captions are keyed by album FOLDER, and glickr names files by
+      // the same 0001.jpg convention in every repo - so left behind they would
+      // not just linger, they would collide: one repo's unsaved caption shown
+      // over another repo's photo, and committed into its album.json on Save.
+      await ref.read(pendingCaptionsNotifierProvider.notifier).clear();
       if (!mounted) return;
     }
 
@@ -411,6 +417,18 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen>
   }
 
   Future<bool> _confirmChange({required bool repoChanged}) async {
+    // Captions typed but never saved are about to go with everything else, so
+    // they get named here rather than discovered missing later.
+    final unsaved = ref
+        .read(pendingCaptionsNotifierProvider)
+        .values
+        .fold<int>(0, (total, album) => total + album.length);
+    final captionsNote = switch (unsaved) {
+      0 => '',
+      1 => " One caption you haven't saved yet goes with them.",
+      _ => " $unsaved captions you haven't saved yet go with them.",
+    };
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -418,12 +436,13 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen>
           repoChanged ? 'Change repository?' : 'Change albums folder?',
         ),
         content: Text(
-          repoChanged
-              ? 'Cached albums and any uploads still waiting are specific to '
-                    'this repository, and will be removed. This cannot be '
-                    'undone.'
-              : "glickr will look for albums in the new folder. Cached albums "
-                    'and any uploads still waiting are cleared.',
+          (repoChanged
+                  ? 'Cached albums and any uploads still waiting are specific '
+                        'to this repository, and will be removed. This cannot '
+                        'be undone.'
+                  : 'glickr will look for albums in the new folder. Cached '
+                        'albums and any uploads still waiting are cleared.') +
+              captionsNote,
         ),
         actions: [
           TextButton(

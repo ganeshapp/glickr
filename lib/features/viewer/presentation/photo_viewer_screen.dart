@@ -13,6 +13,7 @@ import '../../../core/models/album.dart';
 import '../../../core/models/media_item.dart';
 import '../../../core/providers/album_actions_provider.dart';
 import '../../../core/providers/config_provider.dart';
+import '../../../core/providers/pending_captions_provider.dart';
 import '../../../core/providers/services_provider.dart';
 import '../../../core/services/media_pipeline_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -456,10 +457,13 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
   }
 
   Future<void> _setCover(Album album, MediaItem item) async {
+    // Staged captions follow the two filenames the commit swaps - done inside
+    // the action, not here, so no screen can be the one that forgets.
     final ok = await _run(
       () => ref.read(albumActionsProvider.notifier).setCover(album, item),
     );
     if (!ok || !mounted) return;
+
     // The commit renames the chosen file to 0.<ext>, which puts it first in
     // display order - follow it, so the user keeps looking at the photo they
     // just acted on instead of whatever slid into this slot.
@@ -514,6 +518,8 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
     final remaining = items.length - 1;
     final wasLast = index == items.length - 1;
 
+    // A staged caption for the deleted file is dropped inside the action: it
+    // could never be saved onto anything, and would count as unsaved forever.
     final ok = await _run(
       () => ref.read(albumActionsProvider.notifier).deleteItems(album, {
         item.name,
@@ -530,23 +536,53 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
     if (wasLast) _jumpTo(remaining - 1);
   }
 
+  /// The caption to SHOW for [item]: the staged edit when there is one, and
+  /// the committed value otherwise.
+  ///
+  /// Read rather than watched because [build] watches the staged map already,
+  /// so every helper it calls re-runs whenever anything is staged.
+  String _captionFor(Album album, MediaItem item) => ref
+      .read(pendingCaptionsNotifierProvider.notifier)
+      .captionFor(album, item.name);
+
   Future<void> _editCaption(Album album, MediaItem item) async {
     _setChrome(true);
+    // What is on screen, not what is committed - otherwise reopening the sheet
+    // on a caption typed a moment ago offers the old text back.
+    final current = _captionFor(album, item);
+
     final text = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _CaptionSheet(item: item),
+      builder: (_) => _CaptionSheet(fileName: item.name, initial: current),
     );
     if (text == null || !mounted) return;
+    if (text.trim() == current.trim()) return;
 
-    final trimmed = text.trim();
-    if (trimmed == item.caption.trim()) return;
-    await _run(
-      () => ref
-          .read(albumActionsProvider.notifier)
-          // Empty clears the entry rather than writing "" into album.json.
-          .setCaption(album, item.name, trimmed.isEmpty ? null : trimmed),
+    // STAGED, not committed. Every commit to the album repo triggers the
+    // site's build, so captioning twenty photos here has to cost one build,
+    // not twenty - the pill in the top bar is what sends them.
+    await ref
+        .read(pendingCaptionsNotifierProvider.notifier)
+        .stage(album, item.name, text);
+  }
+
+  /// Commit every caption staged for this album, in one commit.
+  ///
+  /// On failure the edits stay staged: the notifier only clears them once the
+  /// commit lands, so a network blip costs a retry rather than the typing.
+  Future<void> _saveCaptions(Album album) async {
+    // Counted here rather than taken from the pill: the two are the same
+    // number, but only one of them cannot go stale between paint and tap.
+    final count = ref
+        .read(pendingCaptionsNotifierProvider.notifier)
+        .countFor(album.folder);
+
+    final ok = await _run(
+      () => ref.read(pendingCaptionsNotifierProvider.notifier).flush(album),
     );
+    if (!ok || !mounted) return;
+    _snack(count == 1 ? 'Caption saved.' : '$count captions saved.');
   }
 
   void _showDetails(Album album, MediaItem item) {
@@ -624,6 +660,13 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
     final index = _index.clamp(0, items.length - 1);
     _syncVideo(items[index]);
 
+    // How many captions are typed but not sent, for the save pill - and the
+    // subscription that lets every caption below be READ from the notifier
+    // instead of watched: staging anything replaces this map, which rebuilds
+    // the screen, which re-runs those reads.
+    final unsaved =
+        ref.watch(pendingCaptionsNotifierProvider)[album.folder]?.length ?? 0;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // Deeper in the tree than the app-wide style in main.dart, so this wins:
       // dark status bar icons over a black viewer are invisible in light mode.
@@ -654,7 +697,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
                 ),
                 Opacity(
                   opacity: 1 - progress,
-                  child: _chrome(album, items, index),
+                  child: _chrome(album, items, index, unsaved),
                 ),
               ],
             );
@@ -754,10 +797,14 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
       );
     }
 
+    final caption = _captionFor(album, item);
+
     return PhotoViewGalleryPageOptions(
       imageProvider: FileImage(file),
       heroAttributes: hero,
-      semanticLabel: item.hasCaption ? item.caption : item.name,
+      // A caption IS the alt text, staged or not - a screen-reader user has no
+      // other way to tell that the caption they just dictated took.
+      semanticLabel: caption.trim().isNotEmpty ? caption : item.name,
       minScale: PhotoViewComputedScale.contained,
       maxScale: PhotoViewComputedScale.covered * 4,
       initialScale: PhotoViewComputedScale.contained,
@@ -797,7 +844,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
     );
   }
 
-  Widget _chrome(Album album, List<MediaItem> items, int index) {
+  Widget _chrome(Album album, List<MediaItem> items, int index, int unsaved) {
     final item = items[index];
     // Never hide the controls from a screen reader: the tap that brings them
     // back is not a gesture it can reliably make.
@@ -814,7 +861,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
           children: [
             Align(
               alignment: Alignment.topCenter,
-              child: _topBar(album, items, index),
+              child: _topBar(album, items, index, unsaved),
             ),
             Align(
               alignment: Alignment.bottomCenter,
@@ -832,7 +879,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
     );
   }
 
-  Widget _topBar(Album album, List<MediaItem> items, int index) {
+  Widget _topBar(Album album, List<MediaItem> items, int index, int unsaved) {
     final item = items[index];
     final canSetCover = item.isImage && !album.isCover(item);
     final coverBlocked =
@@ -881,6 +928,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
                     ),
                   ),
                 ),
+                if (unsaved > 0) _unsavedPill(album, unsaved),
                 PopupMenuButton<_ViewerAction>(
                   enabled: !_busy,
                   tooltip: 'More',
@@ -938,6 +986,68 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
                       : const SizedBox.shrink(),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// The "captions waiting" pill in the top bar.
+  ///
+  /// A user can caption twenty photos here without ever going back to the
+  /// album screen, where the save banner lives, and unsaved work that looks
+  /// exactly like saved work is the whole reason this feature had a bug. It is
+  /// a pill rather than a bar because it sits over a full-bleed photograph:
+  /// absent entirely with nothing staged, and one tap from being sent.
+  Widget _unsavedPill(Album album, int count) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Tooltip(
+        message:
+            'Saved together in one commit, so your site rebuilds once instead '
+            'of once per caption.',
+        triggerMode: TooltipTriggerMode.longPress,
+        child: Material(
+          // The same black-45 lozenge the cover chip uses, so over-photo
+          // chrome reads as one family.
+          color: Colors.black.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            onTap: _busy ? null : () => unawaited(_saveCaptions(album)),
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 7, 12, 7),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.edit_note_rounded,
+                    size: 17,
+                    // The amber from the DARK palette in both themes: this
+                    // pill is always a dark context, and the light palette's
+                    // burnt orange computes to under 3:1 on it.
+                    color: AppColors.dark.warning,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    // Reads as a count of work, not as an error - the state is
+                    // ordinary, it just has to be visible.
+                    '$count unsaved',
+                    // "3 unsaved" is only meaningful next to the photo it is
+                    // drawn on; spoken aloud it needs its noun.
+                    semanticsLabel: count == 1
+                        ? '1 caption not saved'
+                        : '$count captions not saved',
+                    style: AppTheme.mono(
+                      context,
+                      size: 12,
+                      weight: FontWeight.w600,
+                      color: AppColors.dark.warning,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -1027,7 +1137,14 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
   }
 
   Widget _captionBar(Album album, MediaItem item) {
-    final hasCaption = item.hasCaption;
+    // The staged text when there is one: typing a caption and watching the old
+    // one stay put reads as the app having thrown the typing away.
+    final caption = _captionFor(album, item);
+    final hasCaption = caption.trim().isNotEmpty;
+    // Deliberately NOT gated on _busy, unlike the pill and the menu. A commit
+    // takes seconds and captioning is what this screen is for; freezing it for
+    // the length of a network round trip would be its own bug. An edit made
+    // mid-save is kept - `flush` drops only the entries its commit carried.
     return GestureDetector(
       onTap: () => unawaited(_editCaption(album, item)),
       child: Container(
@@ -1042,7 +1159,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
             child:
                 hasCaption
                     ? Text(
-                      item.caption,
+                      caption,
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1292,9 +1409,14 @@ class _VideoStage extends StatelessWidget {
 // -------------------------------------------------------------------- sheets
 
 class _CaptionSheet extends StatefulWidget {
-  final MediaItem item;
+  final String fileName;
 
-  const _CaptionSheet({required this.item});
+  /// The caption as currently DISPLAYED, which may be a staged edit rather
+  /// than the committed one - the sheet is seeded with it so reopening an
+  /// unsaved caption shows what the user typed, not what the repo still says.
+  final String initial;
+
+  const _CaptionSheet({required this.fileName, required this.initial});
 
   @override
   State<_CaptionSheet> createState() => _CaptionSheetState();
@@ -1302,7 +1424,7 @@ class _CaptionSheet extends StatefulWidget {
 
 class _CaptionSheetState extends State<_CaptionSheet> {
   late final TextEditingController _controller = TextEditingController(
-    text: widget.item.caption,
+    text: widget.initial,
   );
 
   @override
@@ -1327,7 +1449,7 @@ class _CaptionSheetState extends State<_CaptionSheet> {
               const _SheetGrabber(),
               Text('Caption', style: context.textTheme.titleMedium),
               const SizedBox(height: 2),
-              Text(widget.item.name, style: AppTheme.mono(context, size: 12)),
+              Text(widget.fileName, style: AppTheme.mono(context, size: 12)),
               const SizedBox(height: 16),
               TextField(
                 controller: _controller,
@@ -1349,8 +1471,9 @@ class _CaptionSheetState extends State<_CaptionSheet> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Captions are saved in album.json. Your site needs a '
-                      'small plugin change to show them.',
+                      'Kept on this device until you save the album, then '
+                      'written to album.json together in one commit. Your '
+                      'site needs a small plugin change to show them.',
                       style: context.textTheme.bodySmall,
                     ),
                   ),
@@ -1368,7 +1491,10 @@ class _CaptionSheetState extends State<_CaptionSheet> {
                   ElevatedButton(
                     onPressed:
                         () => Navigator.of(context).pop(_controller.text),
-                    child: const Text('Save'),
+                    // "Done", not "Save": this closes the sheet and keeps the
+                    // text on the device. Calling it Save and then showing an
+                    // "unsaved" pill a frame later would be a straight lie.
+                    child: const Text('Done'),
                   ),
                 ],
               ),

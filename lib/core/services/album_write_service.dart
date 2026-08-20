@@ -120,21 +120,6 @@ class AlbumWriteService {
     );
   }
 
-  /// Convenience for a single caption. Prefer [setCaptions] from the UI so
-  /// several edits share one commit and one site build.
-  Future<CommitOutcome> setCaption({
-    required AppConfig config,
-    required Album album,
-    required String fileName,
-    required String? caption,
-  }) {
-    return setCaptions(
-      config: config,
-      album: album,
-      captions: {fileName: caption},
-    );
-  }
-
   /// Remove media from an album, dropping their captions in the SAME commit.
   ///
   /// Atomicity matters here specifically: if the file could disappear while

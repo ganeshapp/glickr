@@ -162,13 +162,11 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     final newFolder = folderNameFor(title);
     final moved = newFolder.isNotEmpty && newFolder != album.folder;
 
-    if (moved && _stagedCount > 0) {
-      // Staged captions are filed under the folder name. A rename would strand
-      // them on a folder that no longer exists, so they go out first - one
-      // extra build, on something nobody does twice a day.
-      await _saveCaptions(album);
-      if (!mounted || _stagedCount > 0) return; // failed, already reported
-    }
+    // Staged captions are filed under the folder name, and the action re-files
+    // them under the new one when the rename lands. They are NOT committed on
+    // the way past: the user left them unsaved on purpose, and a rename is no
+    // reason to publish typing they were still thinking about - or to spend a
+    // second site build doing it.
     _renaming = moved;
 
     final result = await ref
@@ -210,23 +208,20 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     );
     if (!ok || !mounted) return;
 
+    // Staged captions for the folder go with it, inside the action: they could
+    // never be saved once it is gone, and would keep the leave-warning armed
+    // for an album that no longer exists.
     final result = await ref
         .read(albumActionsProvider.notifier)
         .deleteAlbum(album);
-    if (result.ok) {
-      // The folder is gone, so any staged caption for it can never be saved.
-      // Left behind it would keep the leave-warning armed for an album that
-      // no longer exists.
-      await ref
-          .read(pendingCaptionsNotifierProvider.notifier)
-          .discard(album.folder);
-    }
     // On success the album leaves the list, this screen's watch turns null and
     // the build below pops it - so there is nothing to do here but say so.
     _report(result, 'Album deleted');
   }
 
   Future<void> _setCover(Album album, MediaItem item) async {
+    // The commit swaps two filenames and their committed captions with them;
+    // staged edits are swapped to match inside the action.
     final result = await ref
         .read(albumActionsProvider.notifier)
         .setCover(album, item);
@@ -271,6 +266,9 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     if (!ok || !mounted) return;
 
     final names = selected.map((i) => i.name).toSet();
+    // Staged captions for the deleted files are dropped inside the action:
+    // they can never be saved, and would keep the unsaved count - and the
+    // leave warning - armed forever.
     final result = await ref
         .read(albumActionsProvider.notifier)
         .deleteItems(album, names);
@@ -286,11 +284,6 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
   /// moment a caption is typed in the viewer sitting on top of this screen.
   int get _pendingCount =>
       ref.watch(pendingCaptionsNotifierProvider)[widget.folder]?.length ?? 0;
-
-  /// The same number, for callbacks: ref.watch is build-only.
-  int get _stagedCount => ref
-      .read(pendingCaptionsNotifierProvider.notifier)
-      .countFor(widget.folder);
 
   /// Commit every staged caption at once.
   ///
@@ -448,6 +441,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     final busy = ref.watch(albumActionsProvider) || _savingCaptions;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final unsaved = _pendingCount;
+    final captions = ref.read(pendingCaptionsNotifierProvider.notifier);
 
     return PopScope(
       canPop: !selectionMode && unsaved == 0,
@@ -521,6 +515,12 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                           child: MediaTile(
                             album: album,
                             item: item,
+                            // The staged edit when there is one: the note
+                            // badge and the tile's alt text have to follow a
+                            // caption typed in the viewer, not wait for it to
+                            // be committed. Safe as a read - the unsaved count
+                            // above is watched, so this rebuilds with it.
+                            caption: captions.captionFor(album, item.name),
                             isSelected: _selected.contains(item.name),
                             selectionMode: selectionMode,
                             onTap: () {
