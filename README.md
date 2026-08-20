@@ -145,6 +145,22 @@ screen. That makes the app a picker with a backend: it needs a permission dialog
 a single pixel, it inverts the common flow (which is "add today's photos to yesterday's album"),
 and it gives a returning user a screen identical to their photo app.
 
+## Cutting a release
+
+Bump `version:` in `pubspec.yaml`, add a `CHANGELOG.md` entry, then:
+
+```bash
+tool/release.sh --upload
+```
+
+That builds all four APKs a release ships - `arm64-v8a` for essentially every phone since 2017,
+`armeabi-v7a` for older 32-bit ones, `x86_64` for Intel emulators, and a `universal` catch-all -
+names them from `pubspec.yaml`, and prints the ABIs each one actually contains. Run it without
+`--upload` to stage them in `build/release/<version>/` without touching the tag.
+
+Do not publish `flutter build apk --release` output on its own: that is a single universal APK, and
+1.0.1 first shipped with only that, dropping the per-ABI downloads 1.0.0 had.
+
 ## Limitations
 
 - Android only.
