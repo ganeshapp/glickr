@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.0.2 — 2026-08-20
+
+Two bugs found using 1.0.1, both older than it.
+
+### Fixed
+
+- **You couldn't swipe between photos.** You also couldn't drag down to
+  dismiss, or tap to hide the controls — but the back button and the menu
+  worked, which is why it looked like only swiping was broken. The top bar's
+  gradient had no height limit, so it sized itself to the whole screen, and a
+  rectangular decoration answers a hit test anywhere inside itself. It was a
+  full-screen trap that caught every touch aimed at the photo before the pager
+  could see it. Measured: the pager was reachable from *no pixel of the
+  screen*. Present in 1.0.0 and 1.0.1.
+  Photos are also visibly brighter now — that gradient was laying roughly 27%
+  black over the entire image, not just the strip behind the controls.
+- **Captions still committed one at a time**, despite 1.0.1 saying otherwise.
+  The saving half shipped and the staging half did not: the album screen got
+  the "N unsaved" banner and the Save button, while the viewer — the only place
+  a caption can actually be typed — went on committing each one immediately.
+  Editing a caption now stages it on the device, every view of that caption
+  shows what you typed straight away, and the viewer carries its own unsaved
+  count so you can save without going back. Each commit was starting a site
+  build that cancelled the one before it.
+
+### Also
+
+- Deleting, renaming or changing the cover of an album now keeps its unsaved
+  captions consistent no matter which screen you did it from, and switching
+  repositories no longer carries one repo's unsaved captions into another's.
+- The full-screen viewer had no tests at all, which is how both bugs shipped
+  twice. It has 31 now; 25 of them fail against 1.0.1.
+
 ## 1.0.1 — 2026-08-20
 
 Everything here came from using 1.0.0 against a real repo.
@@ -20,6 +53,8 @@ Everything here came from using 1.0.0 against a real repo.
 - **Every caption was its own commit**, so captioning an album triggered a site
   rebuild per photo. Caption edits now stage on the device and commit together.
   The album screen shows how many are unsaved, and going back warns you first.
+  **This claim was wrong — see 1.0.2.** Only the saving half shipped; nothing
+  ever staged, so captions kept committing one at a time.
 - **The keyboard covered the Advanced fields** in repo setup, along with the
   confirm button, with no way to scroll them into view.
 - **About linked to the wrong repo.** It opened whichever album repo was
