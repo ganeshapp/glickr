@@ -129,11 +129,26 @@ Album _albumWith(Map<String, String?> captions) {
   );
 }
 
-/// Let every already-scheduled future run. Enough to land a stub's sync, which
-/// resolves without touching a real clock.
-Future<void> settle() async {
-  for (var i = 0; i < 4; i++) {
+/// Let every already-scheduled future run, [until] is satisfied, or the bound
+/// is reached.
+///
+/// This was a fixed four turns, which was enough on an idle machine and not
+/// enough under the full suite: `PendingCaptionsNotifier._write` awaits
+/// `box.put`, which is real file I/O against a temp Hive directory, and the
+/// flush chain (commit -> adopt into the album -> drop the staged copy ->
+/// notify) needs however many event-loop turns that I/O takes rather than a
+/// number picked in advance. It passed alone every time and failed about one
+/// full-suite run in three. Waiting on the CONDITION is what makes it
+/// deterministic; the turn count is only a backstop so a genuine regression
+/// still fails instead of hanging.
+Future<void> settle({bool Function()? until}) async {
+  for (var i = 0; i < 200; i++) {
     await Future<void>.delayed(Duration.zero);
+    if (until != null && until()) return;
+    // Microtask turns alone do not let real file I/O land.
+    if (i % 20 == 19) {
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+    }
   }
 }
 

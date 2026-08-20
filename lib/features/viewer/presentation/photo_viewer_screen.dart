@@ -898,6 +898,16 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
       child: SafeArea(
         bottom: false,
         child: Column(
+          // Without this the Column takes the full height the Align above it
+          // offers, the gradient Container sizes to it, and the whole screen
+          // becomes one RenderDecoratedBox - whose hitTestSelf is true anywhere
+          // inside a rectangular decoration, and which absorbs the pointer
+          // AFTER its children decline it. That swallowed every gesture aimed
+          // at the photo before the pager was ever hit-tested, so swiping
+          // between photos did nothing and drag-down-to-dismiss never fired,
+          // while the buttons drawn on top kept working - which is exactly why
+          // it read as "the viewer is fine, it just won't swipe".
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
