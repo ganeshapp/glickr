@@ -61,3 +61,32 @@ jobs:
       # a plugin raising the required AGP, compileSdk, or NDK version.
       - name: Build APK
         run: flutter build apk --debug
+
+  # Desktop builds can't run on the dev Mac (no Xcode), so this is where pods,
+  # the 10.15 deployment target, -Werror C++ in the Linux plugins and linking
+  # libsecret/GTK get checked. Debug is enough for that; generated .g.dart
+  # files are committed and re-checked by the test job.
+  desktop:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, target: linux }
+          - { os: macos-15, target: macos }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libsecret-1-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.29.3
+          channel: stable
+          cache: true
+
+      - run: flutter build ${{ matrix.target }} --debug

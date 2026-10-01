@@ -82,6 +82,11 @@ account.
 Device backups are disabled for the app (`android:allowBackup="false"`), so none
 of this is copied into Android or cloud backups.
 
+**On macOS and Linux** the token is kept in the login keychain (macOS) or the
+desktop's Secret Service keyring (Linux) instead, and the rest in the app's own
+data folder. The picker reads only what you choose: the Photos library on
+macOS, once you allow it, and on Linux the photos in a folder you pick.
+
 ## Your GitHub token
 
 - **"Sign in with GitHub"** (Device Flow) uses the Client ID of glickr's OAuth
