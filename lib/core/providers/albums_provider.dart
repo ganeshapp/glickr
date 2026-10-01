@@ -414,7 +414,8 @@ List<Album> visibleAlbums(Ref ref, String query) {
         (a) =>
             a.title.toLowerCase().contains(trimmed) ||
             a.folder.toLowerCase().contains(trimmed) ||
-            a.blurb.toLowerCase().contains(trimmed),
+            a.summary.toLowerCase().contains(trimmed) ||
+            a.note.toLowerCase().contains(trimmed),
       )
       .toList();
 }

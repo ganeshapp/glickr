@@ -106,15 +106,18 @@ class AboutScreen extends StatelessWidget {
                       'wide, and your site sorts by filename.',
                 ),
                 _PathNote(
-                  path: '<album_folder>/album.md',
-                  note: 'The album description, as plain markdown.',
-                ),
-                _PathNote(
                   path: '<album_folder>/album.json',
                   note:
-                      'Per-item captions, keyed by filename, plus the highest '
-                      'number the album has ever used so a deleted photo can '
-                      'never hand its caption to a later one.',
+                      'A one-line summary, shown on your album list and under '
+                      'the title. Per-item captions, keyed by filename, plus '
+                      'the highest number the album has ever used so a deleted '
+                      'photo can never hand its caption to a later one.',
+                ),
+                _PathNote(
+                  path: '<album_folder>/album.md',
+                  note:
+                      'An optional longer note, in markdown, shown only on the '
+                      'album page above the photos.',
                 ),
                 _Paragraph(
                   'There is no separate cover file. The cover is simply the '
@@ -196,8 +199,9 @@ class AboutScreen extends StatelessWidget {
                 _Paragraph(
                   'glickr talks only to github.com and '
                   'raw.githubusercontent.com. There is no glickr server, no '
-                  'analytics and no account - your GitHub token stays in the '
-                  'Android keystore on this device.',
+                  'analytics and no account - your GitHub token stays in '
+                  "this device's secure storage (Android keystore, macOS "
+                  'keychain or Linux keyring).',
                 ),
               ],
             ),

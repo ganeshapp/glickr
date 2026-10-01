@@ -53,34 +53,56 @@ class AlbumWriteService {
     );
   }
 
-  /// Replace the album's description (`album.md`).
-  Future<CommitOutcome> setBlurb({
+  /// Replace the album's summary (in `album.json`) and note (`album.md`), as
+  /// ONE commit. An empty note deletes `album.md`.
+  ///
+  /// Only a field that differs from [album] - what the user started editing
+  /// from - is written. The other one keeps whatever the repo holds, so an
+  /// edit made on another device in the meantime survives.
+  Future<CommitOutcome> setDescription({
     required AppConfig config,
     required Album album,
-    required String blurb,
-  }) async {
-    final path = config.albumFilePath(album.folder, kBlurbFile);
-    final trimmed = blurb.trim();
+    required String summary,
+    required String note,
+  }) {
+    final notePath = config.albumFilePath(album.folder, kNoteFile);
+    final trimmed = note.trim();
 
     return _commits.commit(
       config: config,
       message: 'glickr: update description for ${album.folder}',
       buildEntries: (tree) async {
-        final existing = tree.nodes
-            .where((n) => n.isBlob && n.path == path)
-            .firstOrNull;
+        final entries = <TreeEntry>[];
 
-        if (trimmed.isEmpty) {
-          return existing == null
-              ? const <TreeEntry>[]
-              : [TreeEntry.delete(path, mode: existing.mode)];
+        if (summary.trim() != album.summary) {
+          final captions = await _readCaptions(config, tree, album.folder);
+          entries.addAll(
+            await _captionEntries(
+              config,
+              tree,
+              album.folder,
+              captions.withSummary(summary),
+            ),
+          );
         }
-        // Trailing newline so the file is a well-formed text file in git.
-        final sha = await _blob(config, '$trimmed\n');
-        if (existing != null && existing.sha == sha) {
-          return const <TreeEntry>[]; // identical content, nothing to commit
+
+        if (trimmed != album.note) {
+          final existing = tree.nodes
+              .where((n) => n.isBlob && n.path == notePath)
+              .firstOrNull;
+          if (trimmed.isEmpty) {
+            if (existing != null) {
+              entries.add(TreeEntry.delete(notePath, mode: existing.mode));
+            }
+          } else {
+            // Trailing newline so the file is a well-formed text file in git.
+            final sha = await _blob(config, '$trimmed\n');
+            if (existing?.sha != sha) {
+              entries.add(TreeEntry.file(notePath, sha));
+            }
+          }
         }
-        return [TreeEntry.file(path, sha)];
+        return entries;
       },
     );
   }

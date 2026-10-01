@@ -6,7 +6,7 @@
 
 **albums, versioned.**
 
-A mobile app for managing photo albums that live in a GitHub repo.
+An Android, macOS and Linux app for managing photo albums that live in a GitHub repo.
 
 </div>
 
@@ -32,7 +32,7 @@ up for you.
 - **Compress and convert** everything to JPEG or MP4 at Low / Medium / High, stripping EXIF
   (including GPS) on the way.
 - **Upload as one commit**, resumable. Thirty photos is one commit, not thirty.
-- **Manage albums**: rename, re-cover, edit descriptions and captions, delete photos or whole
+- **Manage albums**: rename, re-cover, edit summaries, notes and captions, delete photos or whole
   albums - each as a single atomic commit.
 
 ## How albums are stored
@@ -46,8 +46,8 @@ assets/albums/
     0001.jpg        <- the first photo, and therefore the album's cover
     0002.jpg
     0003.mp4
-    album.md        <- the album description, plain text
-    album.json      <- per-item captions
+    album.json      <- one-line "summary" and per-item captions
+    album.md        <- optional long note, markdown, album page only
   barcamp-days/
     ...
 ```
@@ -109,12 +109,51 @@ flutter run
 Requires Flutter 3.29.3. Newer SDKs currently break `hive_generator` / `riverpod_generator`
 codegen, so the version is pinned in CI too.
 
-## Showing captions on your site
+## Desktop (macOS / Linux)
 
-Captions go into `album.json`, which most Jekyll album generators don't read - so they stay
-invisible on the website until you teach it to.
-[`extras/album-captions-jekyll.md`](extras/album-captions-jekyll.md) has the exact change: about ten
-lines of Ruby plus a Liquid tweak to render them under each photo and in the lightbox.
+Every GitHub release has desktop downloads next to the APKs.
+
+**Linux** (x64; Ubuntu 24.04, Debian 13, Fedora 40 or newer). On Ubuntu or Debian:
+
+```bash
+sudo apt install ./glickr-<version>-linux-x64.deb   # apt, not dpkg -i, so dependencies come too
+```
+
+Elsewhere, extract `glickr-<version>-linux-x64.tar.gz` and run `glickr/glickr` (needs GTK 3
+and libsecret). Staying signed in needs a Secret Service keyring - GNOME Keyring, which Ubuntu
+ships, or KWallet on KDE. Without one, glickr can't store your token.
+
+**macOS** 10.15 or newer, Apple silicon or Intel: open `glickr-<version>-macos.dmg` and drag
+glickr to Applications. The app is not notarized, so the first launch says Apple could not verify
+it. Close that, then open **System Settings → Privacy & Security** (on macOS 12 and earlier,
+**System Preferences → Security & Privacy**) and click **Open Anyway**. Or, in Terminal:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/glickr.app
+```
+
+macOS forgets its approvals with each update: expect that step, the Photos prompt and a keychain
+"Always Allow" for each stored sign-in item again.
+
+**What differs on desktop:**
+
+- **macOS** picks from your Photos library, videos included, exactly like the phone.
+- **Linux** has no photo library: **Choose folder** fills the grid with that folder's JPEG, PNG
+  and WebP photos, and the order you tap them still decides the filenames. Linux uploads photos
+  only. A video in an album opens in your default player instead of inside glickr, has no poster
+  frame in the grid, and **Share** becomes **Open**.
+- In the viewer, ← and → page and Esc closes. A mouse drag pulls the album list down to refresh.
+
+Building locally: `flutter build macos` needs Xcode and CocoaPods; `flutter build linux` needs
+the packages the `desktop` job in [`ci.yml`](.github/workflows/ci.yml) installs.
+
+## Showing summaries and captions on your site
+
+The summary and captions go into `album.json`, which most Jekyll album generators don't read - so
+they stay invisible on the website until you teach it to. The note in `album.md` belongs on the
+album page only. ganeshapp.github.io's
+[`_plugins/albums.rb`](https://github.com/ganeshapp/ganeshapp.github.io/blob/main/_plugins/albums.rb)
+is a complete generator that reads all three.
 
 ## Design notes
 
@@ -161,9 +200,14 @@ names them from `pubspec.yaml`, and prints the ABIs each one actually contains. 
 Do not publish `flutter build apk --release` output on its own: that is a single universal APK, and
 1.0.1 first shipped with only that, dropping the per-ABI downloads 1.0.0 had.
 
+Publishing the release on GitHub runs
+[`desktop-release.yml`](.github/workflows/desktop-release.yml), which builds the macOS and Linux
+downloads with [`tool/package_desktop.sh`](tool/package_desktop.sh) and attaches them. To rebuild
+them for an existing tag, run that workflow by hand from the Actions tab.
+
 ## Limitations
 
-- Android only.
+- No iOS or Windows build. On Linux, uploads are photos only.
 - Album repos must be public, so anything you upload is readable by anyone with the link.
 - GitHub Pages publishes at most 1 GB per site. glickr shows a live meter and blocks uploads before
   you cross it. Note git keeps every version of every photo forever, so deleting an album does not
@@ -178,7 +222,7 @@ Do not publish `flutter build apk --release` output on its own: that is a single
 
 EXIF - including GPS coordinates - is stripped from every photo before upload. glickr talks only to
 `github.com`. It has no server of its own, no analytics, and no account. Your token lives in the
-Android keystore.
+Android keystore, the macOS login keychain or the Linux Secret Service keyring.
 
 Worth saying plainly: a public repo is public forever. Git history keeps a photo even after you
 delete it.

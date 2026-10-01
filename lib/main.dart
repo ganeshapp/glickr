@@ -7,6 +7,7 @@ import 'core/app_navigator.dart';
 import 'core/models/album.dart';
 import 'core/models/app_config.dart';
 import 'core/models/media_item.dart';
+import 'core/platform.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/auth_wrapper.dart';
@@ -15,7 +16,7 @@ import 'features/uploads/widgets/upload_tray.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Hive.initFlutter();
+  Hive.init((await appDataDir()).path); // == initFlutter() on Android
 
   // MediaItem BEFORE Album: Album nests a List<MediaItem>, and registering
   // them the other way round throws "unknown typeId" - but only against a

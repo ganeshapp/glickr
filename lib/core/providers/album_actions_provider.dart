@@ -63,12 +63,21 @@ class AlbumActions extends _$AlbumActions {
     }
   }
 
-  Future<ActionResult> setDescription(Album album, String blurb) {
+  Future<ActionResult> setDescription(
+    Album album, {
+    required String summary,
+    required String note,
+  }) {
     final config = ref.read(configNotifierProvider)!;
     return _run(
       () => ref
           .read(albumWriteServiceProvider)
-          .setBlurb(config: config, album: album, blurb: blurb),
+          .setDescription(
+            config: config,
+            album: album,
+            summary: summary,
+            note: note,
+          ),
     );
   }
 

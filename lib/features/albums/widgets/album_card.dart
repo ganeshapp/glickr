@@ -112,16 +112,32 @@ class _AlbumCardState extends State<AlbumCard> {
                           left: 10,
                           right: 10,
                           bottom: 8,
-                          child: Text(
-                            album.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: context.textTheme.titleSmall?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              height: 1.2,
-                              shadows: AppTheme.photoTextShadow,
-                            ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                album.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: context.textTheme.titleSmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.2,
+                                  shadows: AppTheme.photoTextShadow,
+                                ),
+                              ),
+                              if (album.summary.isNotEmpty)
+                                Text(
+                                  album.summary,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: context.textTheme.bodySmall?.copyWith(
+                                    color: Colors.white70,
+                                    shadows: AppTheme.photoTextShadow,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ],

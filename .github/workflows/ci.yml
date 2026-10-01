@@ -61,3 +61,41 @@ jobs:
       # a plugin raising the required AGP, compileSdk, or NDK version.
       - name: Build APK
         run: flutter build apk --debug
+
+  # Desktop builds can't run on the dev Mac (no Xcode), so this is where pods,
+  # the 10.15 deployment target, -Werror C++ in the Linux plugins and linking
+  # libsecret/GTK get checked. Debug is enough for that; it builds the
+  # committed .g.dart files as they are (the test job regenerates its own).
+  desktop:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, target: linux }
+          - { os: macos-15, target: macos }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libsecret-1-dev dpkg-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.29.3
+          channel: stable
+          cache: true
+
+      # The same release build and packaging the release workflow runs, so a
+      # broken .deb/.dmg shows up on the PR instead of after tagging.
+      - run: flutter build ${{ matrix.target }} --release
+      - run: tool/package_desktop.sh ${{ matrix.target }}
+      - if: runner.os == 'Linux'
+        run: sudo apt-get install -y ./build/dist/*.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.target }}
+          path: build/dist/*

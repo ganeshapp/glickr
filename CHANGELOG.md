@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.1.0 — 2026-10-02
+
+### Added
+
+- **glickr runs on macOS and Linux.** Each release now carries a universal
+  `.dmg` for macOS 10.15+ and a `.deb` and `.tar.gz` for 64-bit Linux
+  (Ubuntu 24.04 or newer), built from the same code. On macOS it picks from
+  the Photos library, videos included, just like the phone. Linux has no
+  photo library, so you choose a folder and pick from its photos, in order, in
+  the same grid; Linux uploads photos only, and opens videos in your default
+  player. The macOS build is not notarized - the README has the one-time
+  "Open Anyway" step. Grids fit more columns in a wide window, the viewer
+  pages with the arrow keys, and a mouse drag pulls the album list to refresh.
+
+### Changed
+
+- **An album now has a summary and an optional note.** The summary is one line
+  in `album.json`, shown on the album list and under the title; the note is
+  markdown in `album.md`, shown only on the album page. Both can be set when
+  creating an album, and are edited together in one commit. Your site must
+  read `summary` from `album.json` to show it - see the README.
+
 ## 1.0.2 — 2026-08-20
 
 Two bugs found using 1.0.1, both older than it.

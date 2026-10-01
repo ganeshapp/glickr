@@ -7,10 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/models/album.dart';
 import '../../../core/models/media_item.dart';
+import '../../../core/platform.dart';
 import '../../../core/providers/album_actions_provider.dart';
 import '../../../core/providers/config_provider.dart';
 import '../../../core/providers/pending_captions_provider.dart';
@@ -217,7 +219,8 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
   /// controller inline would mutate, during a build, the very state that build
   /// has already read.
   void _syncVideo(MediaItem current) {
-    final wanted = current.isVideo ? current.blobSha : null;
+    // Linux has no video_player: its play button opens the default app.
+    final wanted = current.isVideo && !isLinux ? current.blobSha : null;
     if (wanted != _videoWanted) {
       _videoWanted = wanted;
       _videoFailed = false;
@@ -422,7 +425,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
       case _ViewerAction.details:
         _showDetails(album, item);
       case _ViewerAction.share:
-        unawaited(_share(item));
+        unawaited(isLinux ? _openExternally(item) : _share(item));
       case _ViewerAction.setCover:
         unawaited(_setCover(album, item));
       case _ViewerAction.delete:
@@ -454,6 +457,26 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
     } catch (_) {
       if (mounted) _snack("Couldn't open the share sheet.");
     }
+  }
+
+  /// Linux has no share sheet for files and no in-app video player: hand the
+  /// cached file to the desktop's default app instead.
+  ///
+  /// [_playWhenReady] spins the play button while a clip downloads, and makes
+  /// a second click wait for the first rather than open a second player.
+  Future<void> _openExternally(MediaItem item) async {
+    if (_playWhenReady) return;
+    setState(() => _playWhenReady = true);
+    var opened = false;
+    try {
+      final file = _resolved[item.blobSha] ?? await _fileFor(item);
+      opened = file != null && await launchUrl(Uri.file(file.path));
+    } catch (_) {
+      // Falls through to the snackbar.
+    }
+    if (!mounted) return;
+    setState(() => _playWhenReady = false);
+    if (!opened) _snack("Couldn't open that file.");
   }
 
   Future<void> _setCover(Album album, MediaItem item) async {
@@ -667,7 +690,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
     final unsaved =
         ref.watch(pendingCaptionsNotifierProvider)[album.folder]?.length ?? 0;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
+    final viewer = AnnotatedRegion<SystemUiOverlayStyle>(
       // Deeper in the tree than the app-wide style in main.dart, so this wins:
       // dark status bar icons over a black viewer are invisible in light mode.
       value: const SystemUiOverlayStyle(
@@ -705,6 +728,31 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
           child: _gallery(album, items),
         ),
       ),
+    );
+    if (!isDesktop) return viewer;
+
+    // Desktop: the arrow keys page and Escape closes, as in any photo viewer.
+    // A mouse drag can't page reliably: photo_view's recogniser hears each
+    // move first and claims any mouse drag whose first step is over 2px.
+    void step(int by) {
+      final to = _index + by;
+      // Not past either end: macOS would bounce a whole page into overscroll.
+      if (to < 0 || to >= items.length) return;
+      _pager.animateToPage(
+        to,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.ease,
+      );
+    }
+
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () => step(-1),
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () => step(1),
+        const SingleActivator(LogicalKeyboardKey.escape):
+            () => Navigator.of(context).maybePop(),
+      },
+      child: Focus(autofocus: true, child: viewer),
     );
   }
 
@@ -767,7 +815,8 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
           unavailable: requested && file == null,
           armed: isCurrent && _playWhenReady,
           onTap: _toggleChrome,
-          onPlayPause: () => unawaited(_togglePlay()),
+          onPlayPause:
+              () => unawaited(isLinux ? _openExternally(item) : _togglePlay()),
           onRetry: () => unawaited(_retry(item)),
         ),
       );
@@ -960,7 +1009,10 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
                         ),
                         PopupMenuItem(
                           value: _ViewerAction.share,
-                          child: _menuRow(Icons.ios_share_rounded, 'Share'),
+                          child:
+                              isLinux
+                                  ? _menuRow(Icons.open_in_new_rounded, 'Open')
+                                  : _menuRow(Icons.ios_share_rounded, 'Share'),
                         ),
                         PopupMenuItem(
                           value: _ViewerAction.setCover,
@@ -1327,7 +1379,7 @@ class _VideoStage extends StatelessWidget {
       return _ViewerError(
         message: "Couldn't play this video",
         detail:
-            "Your phone might not be able to decode it - it's still safe on "
+            "This device might not be able to decode it - it's still safe on "
             'GitHub.',
         onRetry: onRetry,
       );

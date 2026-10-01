@@ -1,5 +1,6 @@
 import 'package:hive/hive.dart';
 
+import '../utils/album_captions.dart';
 import '../utils/album_conventions.dart';
 import 'media_item.dart';
 
@@ -17,11 +18,10 @@ class Album extends HiveObject {
   @HiveField(0)
   String folder;
 
-  /// `album.md` body, with any front matter already stripped (the site's
-  /// generator tolerates front matter but does not require it, and every
-  /// album.md in the real repo is a bare line of prose).
+  /// `album.md` body: the optional long note (markdown), with any front
+  /// matter already stripped.
   @HiveField(1)
-  String blurb;
+  String note;
 
   /// Every media file in the folder, cover included. `album.md` and
   /// `album.json` are not items; they are tracked by their own sha fields.
@@ -34,10 +34,9 @@ class Album extends HiveObject {
   @HiveField(3)
   String? treeShaRaw;
 
-  /// Blob sha of `album.md`, used to detect a concurrent edit before
-  /// overwriting someone else's description.
+  /// Blob sha of `album.md`.
   @HiveField(4)
-  String? blurbShaRaw;
+  String? noteShaRaw;
 
   /// Blob sha of `album.json`.
   @HiveField(5)
@@ -61,28 +60,35 @@ class Album extends HiveObject {
 
   Album({
     required this.folder,
-    this.blurb = '',
+    this.note = '',
     List<MediaItem>? items,
     String? treeSha,
-    String? blurbSha,
+    String? noteSha,
     String? captionsSha,
     String? captionsJson,
     int? nextNumber,
     DateTime? lastSynced,
   }) : items = items ?? <MediaItem>[],
        treeShaRaw = treeSha,
-       blurbShaRaw = blurbSha,
+       noteShaRaw = noteSha,
        captionsShaRaw = captionsSha,
        captionsJsonRaw = captionsJson,
        nextNumberRaw = nextNumber,
        lastSyncedRaw = lastSynced;
 
   String? get treeSha => treeShaRaw;
-  String? get blurbSha => blurbShaRaw;
+  String? get noteSha => noteShaRaw;
   String? get captionsSha => captionsShaRaw;
   String? get captionsJson => captionsJsonRaw;
   int? get nextNumber => nextNumberRaw;
   DateTime? get lastSynced => lastSyncedRaw;
+
+  /// The one-line summary from `album.json`. Read from the cached sidecar
+  /// rather than stored, so the two can never disagree.
+  late final String summary = AlbumCaptions.parse(
+    folder,
+    captionsJsonRaw,
+  ).summary;
 
   /// The title the website shows. Derived, never stored, so it can never drift
   /// from the folder name.
@@ -135,10 +141,10 @@ class Album extends HiveObject {
 
   Album copyWith({
     String? folder,
-    String? blurb,
+    String? note,
     List<MediaItem>? items,
     String? treeSha,
-    String? blurbSha,
+    String? noteSha,
     String? captionsSha,
     String? captionsJson,
     int? nextNumber,
@@ -146,10 +152,10 @@ class Album extends HiveObject {
   }) {
     return Album(
       folder: folder ?? this.folder,
-      blurb: blurb ?? this.blurb,
+      note: note ?? this.note,
       items: items ?? List<MediaItem>.from(this.items),
       treeSha: treeSha ?? treeShaRaw,
-      blurbSha: blurbSha ?? blurbShaRaw,
+      noteSha: noteSha ?? noteShaRaw,
       captionsSha: captionsSha ?? captionsShaRaw,
       captionsJson: captionsJson ?? captionsJsonRaw,
       nextNumber: nextNumber ?? nextNumberRaw,

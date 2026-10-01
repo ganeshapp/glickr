@@ -22,8 +22,11 @@ const Set<String> kImageExtensions = {
 const Set<String> kVideoExtensions = {'.mp4', '.webm', '.mov'};
 
 /// Sidecar files that live inside an album folder but are not media.
-const String kBlurbFile = 'album.md';
+const String kNoteFile = 'album.md';
 const String kCaptionsFile = 'album.json';
+
+/// The album summary is a one-liner for the listing card, not a paragraph.
+const int kSummaryMaxLength = 120;
 
 /// Zero-pad width for filenames glickr creates.
 ///

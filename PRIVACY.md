@@ -1,15 +1,16 @@
 # glickr Privacy Policy
 
-_Last updated: 2026-08-20 (v1.0.0)_
+_Last updated: 2026-10-02 (v1.1.0)_
 
-glickr is an open-source Android app that manages photo albums stored as folders
-in **your own GitHub repository**, so a Jekyll site can render them. Nothing you
-upload passes through a glickr server, because there is no glickr server.
+glickr is an open-source app for Android, macOS and Linux that manages photo
+albums stored as folders in **your own GitHub repository**, so a Jekyll site
+can render them. Nothing you upload passes through a glickr server, because
+there is no glickr server.
 
 ## The short version
 
 - There is **no glickr server, no analytics, no crash reporting and no account**.
-- Your photos go from your phone to **your own GitHub repository** and nowhere
+- Your photos go from your device to **your own GitHub repository** and nowhere
   else.
 - **EXIF metadata, including GPS coordinates, is stripped from every photo
   before upload.**
@@ -63,9 +64,9 @@ account.
 - Files are renamed to a four-digit sequence number in the order you selected
   them (`0001.jpg`, `0002.mp4`, and so on). The original filename is not
   uploaded.
-- Captions you write are stored in `album.json` inside the album folder, and
-  album descriptions in `album.md`. Both are committed to your repository like
-  any other file.
+- Captions and album summaries you write are stored in `album.json` inside the
+  album folder, and album notes in `album.md`. Both are committed to your
+  repository like any other file.
 
 ## What the app stores on your device
 
@@ -81,6 +82,11 @@ account.
 
 Device backups are disabled for the app (`android:allowBackup="false"`), so none
 of this is copied into Android or cloud backups.
+
+**On macOS and Linux** the token is kept in the login keychain (macOS) or the
+desktop's Secret Service keyring (Linux) instead, and the rest in the app's own
+data folder. The picker reads only what you choose: the Photos library on
+macOS, once you allow it, and on Linux the photos in a folder you pick.
 
 ## Your GitHub token
 

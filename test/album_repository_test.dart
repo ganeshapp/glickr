@@ -134,4 +134,20 @@ void main() {
     expect(git.fetched, isEmpty);
     expect(again.items.single.caption, '6am start, rewritten');
   });
+
+  test('summary comes from album.json and the note from album.md', () async {
+    final git = _StubGit([
+      ..._tree,
+      const TreeNode(path: 'trip/album.md', sha: 'SM', type: 'blob', size: 30),
+    ])
+      ..blobs['SJ2'] = '{"summary":"Coast ride","items":{}}'
+      ..blobs['SM'] = '---\nlayout: x\n---\nWho came: everyone\n';
+
+    final album = (await AlbumRepository(git: git).sync(config)).albums.single;
+
+    expect(album.summary, 'Coast ride');
+    expect(album.note, 'Who came: everyone');
+    // The summary rides on the album.json already read for captions.
+    expect(git.fetched..sort(), ['SJ2', 'SM']);
+  });
 }

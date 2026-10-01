@@ -24,6 +24,9 @@ class SecureStorageService {
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
     ),
+    // The default data-protection keychain needs an entitlement an ad-hoc
+    // signed build cannot have (-34018); the login keychain needs none.
+    mOptions: MacOsOptions(useDataProtectionKeyChain: false),
   );
 
   /// Save the GitHub access token (PAT or device-flow access token)

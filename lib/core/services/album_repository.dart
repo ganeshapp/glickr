@@ -56,7 +56,7 @@ class AlbumRepository {
   /// is effectively free - which is what makes refreshing on every resume
   /// affordable.
   ///
-  /// [cachedAlbums] lets unchanged albums keep their already-fetched blurb and
+  /// [cachedAlbums] lets unchanged albums keep their already-fetched note and
   /// captions: each folder carries its own tree sha, so an album whose sha
   /// still matches needs no further requests at all.
   Future<AlbumSyncResult> sync(
@@ -160,8 +160,8 @@ class AlbumRepository {
       if (folder.isEmpty || folder.startsWith('.')) continue;
 
       final group = groups.putIfAbsent(folder, () => AlbumFolderGroup(folder));
-      if (name == kBlurbFile) {
-        group.blurbSha = node.sha;
+      if (name == kNoteFile) {
+        group.noteSha = node.sha;
       } else if (name == kCaptionsFile) {
         group.captionsSha = node.sha;
       } else if (isRenderableName(name)) {
@@ -197,7 +197,7 @@ class AlbumRepository {
     return cached.copyWith(
       items: _withCaptions(group.media, captions),
       treeSha: group.treeSha,
-      blurbSha: group.blurbSha,
+      noteSha: group.noteSha,
       captionsSha: group.captionsSha,
       nextNumber: captions.next,
       lastSynced: DateTime.now(),
@@ -209,29 +209,29 @@ class AlbumRepository {
     AlbumFolderGroup group, {
     Album? cached,
   }) async {
-    var blurb = cached?.blurb ?? '';
+    var note = cached?.note ?? '';
     var captionsJson = cached?.captionsJson;
     // Shas are the record of WHAT WAS SUCCESSFULLY READ, not of what the tree
     // currently holds. A sha is only adopted once its bytes are in hand -
     // recording the new sha after a failed fetch would make every later sync
     // compare equal, skip the refetch, and keep serving the empty result
     // forever. Same reason treeSha is withheld below.
-    var blurbSha = cached?.blurbSha;
+    var noteSha = cached?.noteSha;
     var captionsSha = cached?.captionsSha;
     var complete = true;
 
     // Only refetch a sidecar whose blob sha actually moved.
-    if (group.blurbSha != null && group.blurbSha != cached?.blurbSha) {
-      final text = await _blobTextOrNull(config, group.blurbSha!);
+    if (group.noteSha != null && group.noteSha != cached?.noteSha) {
+      final text = await _blobTextOrNull(config, group.noteSha!);
       if (text == null) {
         complete = false;
       } else {
-        blurb = stripFrontMatter(text).trim();
-        blurbSha = group.blurbSha;
+        note = stripFrontMatter(text).trim();
+        noteSha = group.noteSha;
       }
     } else {
-      blurbSha = group.blurbSha;
-      if (group.blurbSha == null) blurb = '';
+      noteSha = group.noteSha;
+      if (group.noteSha == null) note = '';
     }
 
     // Refetch when the sha moved, and also when the cache holds a sha but no
@@ -256,13 +256,13 @@ class AlbumRepository {
 
     return Album(
       folder: group.folder,
-      blurb: blurb,
+      note: note,
       items: _withCaptions(group.media, captions),
       // Withholding the folder's tree sha is what actually re-arms the retry:
       // with it recorded, the next sync takes the `cached.treeSha == group
       // .treeSha` fast path and never looks at the sidecars at all.
       treeSha: complete ? group.treeSha : null,
-      blurbSha: blurbSha,
+      noteSha: noteSha,
       captionsSha: captionsSha,
       captionsJson: captionsJson,
       nextNumber: captions.next,
@@ -301,8 +301,7 @@ class AlbumRepository {
 /// Remove YAML front matter from an `album.md`.
 ///
 /// The site tolerates front matter but strips it before rendering, so glickr
-/// shows the same blurb the website shows. Every album.md in the repo today is
-/// a bare line of prose, but hand-edits happen.
+/// shows the same note the website shows.
 String stripFrontMatter(String text) {
   final match = RegExp(
     r'^---\s*\n.*?\n---\s*\n',
@@ -317,7 +316,7 @@ class AlbumFolderGroup {
   final String folder;
   final List<MediaItem> media = [];
   String? treeSha;
-  String? blurbSha;
+  String? noteSha;
   String? captionsSha;
 
   AlbumFolderGroup(this.folder);

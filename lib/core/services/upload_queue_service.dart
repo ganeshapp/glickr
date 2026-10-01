@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../models/upload_job.dart';
+import '../platform.dart';
 
 /// Hive-backed persistence for the upload queue.
 ///
@@ -33,7 +33,7 @@ class UploadQueueService {
   /// silently destroy a queued upload between the user picking photos and the
   /// network coming back.
   static Future<Directory> stagingDir(String batchId) async {
-    final root = await getApplicationDocumentsDirectory();
+    final root = await appDataDir();
     final dir = Directory(p.join(root.path, 'pending_uploads', batchId));
     if (!await dir.exists()) await dir.create(recursive: true);
     return dir;
@@ -157,7 +157,7 @@ class UploadQueueService {
 
   Future<void> _deleteStagingRoot() async {
     try {
-      final root = await getApplicationDocumentsDirectory();
+      final root = await appDataDir();
       final dir = Directory(p.join(root.path, 'pending_uploads'));
       if (await dir.exists()) await dir.delete(recursive: true);
     } catch (_) {
@@ -171,7 +171,7 @@ class UploadQueueService {
   /// leaves its compressed files on disk forever.
   Future<void> pruneOrphanStaging() async {
     try {
-      final root = await getApplicationDocumentsDirectory();
+      final root = await appDataDir();
       final dir = Directory(p.join(root.path, 'pending_uploads'));
       if (!await dir.exists()) return;
       final live = loadBatches().map((b) => b.id).toSet();

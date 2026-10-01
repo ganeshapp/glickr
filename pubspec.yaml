@@ -1,7 +1,7 @@
 name: glickr
 description: "Manage photo albums stored in a GitHub repo, from your phone."
 publish_to: 'none'
-version: 1.0.2+3
+version: 1.1.0+4
 
 environment:
   sdk: ^3.7.0
@@ -41,6 +41,14 @@ dependencies:
   # is fortunate, because video_thumbnail injects a dead jcenter() repo into
   # rootProject.allprojects and breaks the whole Gradle build.
   video_compress: ^3.1.4
+
+  # Linux has none of the above: a folder the user picks stands in for the
+  # gallery (GTK dialog), and photos are re-encoded in pure Dart. The
+  # implementation + interface rather than file_selector, which would also pull
+  # file_selector_android into the APK.
+  file_selector_linux: ^0.9.3
+  file_selector_platform_interface: ^2.6.0
+  image: ^4.8.0
 
   # Media display + cache
   cached_network_image: ^3.4.1
@@ -96,3 +104,6 @@ flutter_launcher_icons:
   adaptive_icon_background: "#0E0F11"
   adaptive_icon_foreground: "assets/brand/glickr_foreground_1024.png"
   adaptive_icon_monochrome: "assets/brand/glickr_monochrome_1024.png"
+  macos:
+    generate: true
+    image_path: "assets/brand/glickr_icon_1024.png"

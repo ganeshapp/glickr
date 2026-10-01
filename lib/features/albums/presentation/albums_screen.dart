@@ -1,9 +1,11 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/album.dart';
 import '../../../core/models/app_config.dart';
+import '../../../core/platform.dart';
 import '../../../core/providers/album_actions_provider.dart';
 import '../../../core/providers/albums_provider.dart';
 import '../../../core/providers/auth_provider.dart';
@@ -21,6 +23,7 @@ import '../../picker/presentation/media_picker_screen.dart';
 import '../../settings/presentation/about_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../widgets/album_card.dart';
+import '../widgets/description_dialog.dart';
 import 'album_detail_screen.dart';
 
 enum _MenuAction { sort, openSite, changeRepo, about }
@@ -65,19 +68,27 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
         onRefresh: _refresh,
         color: scheme.primary,
         backgroundColor: scheme.surfaceContainerHigh,
-        child: CustomScrollView(
-          // AlwaysScrollable under the bouncing physics so pull-to-refresh
-          // still works on the empty and error states, where the content does
-          // not fill the viewport and a plain scroll view would refuse the
-          // drag outright.
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
+        // Desktop: the only refresh control, so a mouse must pull it like a
+        // finger. Only here - app-wide, a mouse drag in a long text field
+        // would scroll it instead of selecting.
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(
+            dragDevices: isDesktop ? PointerDeviceKind.values.toSet() : null,
           ),
-          slivers: [
-            _appBar(),
-            if (status != null) SliverToBoxAdapter(child: status),
-            _content(state, albums),
-          ],
+          child: CustomScrollView(
+            // AlwaysScrollable under the bouncing physics so pull-to-refresh
+            // still works on the empty and error states, where the content
+            // does not fill the viewport and a plain scroll view would refuse
+            // the drag outright.
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            slivers: [
+              _appBar(),
+              if (status != null) SliverToBoxAdapter(child: status),
+              _content(state, albums),
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -732,62 +743,12 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
   }
 
   Future<void> _editDescription(Album album) async {
-    final controller = TextEditingController(text: album.blurb);
-    String? typed;
-    try {
-      typed = await showDialog<String>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Edit description'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  minLines: 3,
-                  maxLines: 6,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    hintText: 'What was this one about?',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Saved as album.md in the folder, and shown under the album '
-                  'title on your site.',
-                  style: context.textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      );
-    } finally {
-      controller.dispose();
-    }
-
-    if (typed == null || !mounted) return;
-    // No commit for a no-op edit - every save here is a real git commit
-    // against the user's rate limit.
-    if (typed.trim() == album.blurb.trim()) return;
+    final edit = await showDescriptionDialog(context, album);
+    if (edit == null || !mounted) return;
 
     final result = await ref
         .read(albumActionsProvider.notifier)
-        .setDescription(album, typed.trim());
+        .setDescription(album, summary: edit.summary, note: edit.note);
     _snack(
       result.ok
           ? 'Description saved'

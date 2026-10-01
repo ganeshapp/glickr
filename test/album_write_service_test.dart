@@ -25,6 +25,7 @@ class _StubGit extends GitDataService {
 
   /// Entries of the tree that was committed, or null if none ever was.
   List<TreeEntry>? committed;
+  int commits = 0;
 
   @override
   Future<RefInfo> getHead(
@@ -61,6 +62,9 @@ class _StubGit extends GitDataService {
   }) async {
     final text = utf8.decode(bytes);
     written.add(text);
+    // Git blobs are content addresses: identical text, identical sha.
+    final known = blobs.entries.where((e) => e.value == text).firstOrNull;
+    if (known != null) return known.key;
     final sha = 'created${written.length}';
     blobs[sha] = text;
     return sha;
@@ -74,6 +78,7 @@ class _StubGit extends GitDataService {
     required List<TreeEntry> entries,
   }) async {
     committed = entries;
+    commits++;
     return 'tree2';
   }
 
@@ -244,5 +249,129 @@ void main() {
       (jsonDecode(git.written.single) as Map)['items'],
       {'0001.jpg': 'first caption'},
     );
+  });
+
+  group('setDescription', () {
+    const described = <TreeNode>[
+      ..._withSidecar,
+      TreeNode(path: 'trip/album.md', sha: 'SM', type: 'blob', size: 9),
+    ];
+    const sidecar = '''
+{
+  "version": 1,
+  "album": "trip",
+  "pad": 4,
+  "next": 12,
+  "summary": "Old summary",
+  "credits": "Photos by G",
+  "items": {
+    "0001.jpg": "6am start"
+  }
+}
+''';
+
+    _StubGit describedGit() => _StubGit(described)
+      ..blobs['SJ'] = sidecar
+      ..blobs['SM'] = 'Long day\n';
+
+    // What the dialog was opened on.
+    final opened = Album(
+      folder: 'trip',
+      note: 'Long day',
+      captionsJson: sidecar,
+    );
+
+    test('writes both files in one commit, keeping the captions', () async {
+      final git = describedGit();
+
+      final outcome = await _service(git).setDescription(
+        config: config,
+        album: opened,
+        summary: ' Coast ride ',
+        note: 'Who came: everyone',
+      );
+
+      expect(outcome, isA<CommitApplied>());
+      expect(git.commits, 1);
+      expect(git.committed!.map((e) => e.path).toSet(), {
+        'trip/album.json',
+        'trip/album.md',
+      });
+      final json =
+          jsonDecode(git.blobs[_entryFor(git.committed, 'trip/album.json')!.sha]!)
+              as Map;
+      expect(json['summary'], 'Coast ride');
+      expect(json['next'], 12);
+      expect(json['pad'], 4);
+      expect(json['credits'], 'Photos by G');
+      expect(json['items'], {'0001.jpg': '6am start'});
+      expect(
+        git.blobs[_entryFor(git.committed, 'trip/album.md')!.sha],
+        'Who came: everyone\n',
+      );
+    });
+
+    test('an empty note deletes album.md', () async {
+      // album.json is unreachable: a note-only edit must not even read it.
+      final git = describedGit()..blobs.remove('SJ');
+
+      await _service(git).setDescription(
+        config: config,
+        album: opened,
+        summary: 'Old summary',
+        note: '  ',
+      );
+
+      expect(git.committed!.map((e) => e.path), ['trip/album.md']);
+      expect(git.committed!.single.sha, isNull);
+    });
+
+    test('a summary-only edit keeps a note edited elsewhere', () async {
+      final git = describedGit()..blobs['SM'] = 'Edited on the laptop\n';
+
+      await _service(git).setDescription(
+        config: config,
+        album: opened,
+        summary: 'Coast ride',
+        note: 'Long day',
+      );
+
+      expect(git.committed!.map((e) => e.path), ['trip/album.json']);
+    });
+
+    test('commits nothing when neither changed', () async {
+      final git = describedGit();
+
+      final outcome = await _service(git).setDescription(
+        config: config,
+        album: opened,
+        summary: 'Old summary',
+        note: 'Long day',
+      );
+
+      expect(outcome, isA<CommitNoop>());
+      expect(git.committed, isNull);
+    });
+
+    test('an album with neither file gets both created', () async {
+      final git = _StubGit(const [
+        TreeNode(path: 'trip', sha: 'TREE1', type: 'tree'),
+        TreeNode(path: 'trip/0001.jpg', sha: 'B1', type: 'blob', size: 1000),
+      ]);
+
+      await _service(git).setDescription(
+        config: config,
+        album: album,
+        summary: 'Coast ride',
+        note: 'A long note',
+      );
+
+      expect(git.committed!.map((e) => e.path), [
+        'trip/album.json',
+        'trip/album.md',
+      ]);
+      expect((jsonDecode(git.written.first) as Map)['summary'], 'Coast ride');
+      expect(git.written.last, 'A long note\n');
+    });
   });
 }

@@ -175,7 +175,7 @@ class _AlbumByFolderProviderElement extends AutoDisposeProviderElement<Album?>
   String get folder => (origin as AlbumByFolderProvider).folder;
 }
 
-String _$albumActionsHash() => r'aeaa1a1a83d0635f1c2db28ae7f98c364dd63721';
+String _$albumActionsHash() => r'146623cb8cf75a4cf727f32bd58742c377070861';
 
 /// Every album mutation the UI can trigger.
 ///
