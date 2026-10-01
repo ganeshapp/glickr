@@ -61,6 +61,12 @@ class MediaCacheService {
                // reason to evict is space. A year is effectively "never".
                stalePeriod: const Duration(days: 365),
                maxNrOfCacheObjects: maxObjects,
+               // sqflite on Android, as by default. Not on macOS, where it
+               // looks for an old copy in ~/Documents on every launch - and
+               // that raises a folder-access prompt.
+               repo: isDesktop
+                   ? JsonCacheInfoRepository(databaseName: _cacheKey)
+                   : CacheObjectProvider(databaseName: _cacheKey),
                fileService: _UrlExtensionFileService(),
              ),
            ),

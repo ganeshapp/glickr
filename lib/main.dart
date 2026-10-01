@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,14 +56,6 @@ class GlickrApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
-      // Desktop: a mouse drag pages the viewer, pulls to refresh and moves
-      // sheets, like a finger. Flutter leaves the mouse out by default.
-      scrollBehavior:
-          isDesktop
-              ? const MaterialScrollBehavior().copyWith(
-                dragDevices: PointerDeviceKind.values.toSet(),
-              )
-              : null,
       builder: (context, child) {
         final scheme = Theme.of(context).colorScheme;
         final iconBrightness = scheme.brightness == Brightness.dark

@@ -125,8 +125,8 @@ ships, or KWallet on KDE. Without one, glickr can't store your token.
 
 **macOS** 10.15 or newer, Apple silicon or Intel: open `glickr-<version>-macos.dmg` and drag
 glickr to Applications. The app is not notarized, so the first launch says Apple could not verify
-it. Close that, then open **System Settings → Privacy & Security** and click **Open Anyway**. Or,
-in Terminal:
+it. Close that, then open **System Settings → Privacy & Security** (on macOS 12 and earlier,
+**System Preferences → Security & Privacy**) and click **Open Anyway**. Or, in Terminal:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/glickr.app
@@ -142,7 +142,7 @@ macOS forgets its approvals with each update: expect that step, the Photos promp
   and WebP photos, and the order you tap them still decides the filenames. Linux uploads photos
   only. A video in an album opens in your default player instead of inside glickr, has no poster
   frame in the grid, and **Share** becomes **Open**.
-- Mouse drags work like swipes: page through the viewer, pull the album list down to refresh.
+- In the viewer, ← and → page and Esc closes. A mouse drag pulls the album list down to refresh.
 
 Building locally: `flutter build macos` needs Xcode and CocoaPods; `flutter build linux` needs
 the packages the `desktop` job in [`ci.yml`](.github/workflows/ci.yml) installs.

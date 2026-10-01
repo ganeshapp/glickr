@@ -11,8 +11,8 @@
   photo library, so you choose a folder and pick from its photos, in order, in
   the same grid; Linux uploads photos only, and opens videos in your default
   player. The macOS build is not notarized - the README has the one-time
-  "Open Anyway" step. Grids fit more columns in a wide window, and a mouse
-  drag works like a swipe.
+  "Open Anyway" step. Grids fit more columns in a wide window, the viewer
+  pages with the arrow keys, and a mouse drag pulls the album list to refresh.
 
 ### Changed
 

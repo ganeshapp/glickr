@@ -461,14 +461,22 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
 
   /// Linux has no share sheet for files and no in-app video player: hand the
   /// cached file to the desktop's default app instead.
+  ///
+  /// [_playWhenReady] spins the play button while a clip downloads, and makes
+  /// a second click wait for the first rather than open a second player.
   Future<void> _openExternally(MediaItem item) async {
-    final file = _resolved[item.blobSha] ?? await _fileFor(item);
+    if (_playWhenReady) return;
+    setState(() => _playWhenReady = true);
+    var opened = false;
     try {
-      if (file != null && await launchUrl(Uri.file(file.path))) return;
+      final file = _resolved[item.blobSha] ?? await _fileFor(item);
+      opened = file != null && await launchUrl(Uri.file(file.path));
     } catch (_) {
       // Falls through to the snackbar.
     }
-    if (mounted) _snack("Couldn't open that file.");
+    if (!mounted) return;
+    setState(() => _playWhenReady = false);
+    if (!opened) _snack("Couldn't open that file.");
   }
 
   Future<void> _setCover(Album album, MediaItem item) async {
@@ -682,7 +690,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
     final unsaved =
         ref.watch(pendingCaptionsNotifierProvider)[album.folder]?.length ?? 0;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
+    final viewer = AnnotatedRegion<SystemUiOverlayStyle>(
       // Deeper in the tree than the app-wide style in main.dart, so this wins:
       // dark status bar icons over a black viewer are invisible in light mode.
       value: const SystemUiOverlayStyle(
@@ -720,6 +728,31 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
           child: _gallery(album, items),
         ),
       ),
+    );
+    if (!isDesktop) return viewer;
+
+    // Desktop: the arrow keys page and Escape closes, as in any photo viewer.
+    // A mouse drag can't page reliably: photo_view's recogniser hears each
+    // move first and claims any mouse drag whose first step is over 2px.
+    void step(int by) {
+      final to = _index + by;
+      // Not past either end: macOS would bounce a whole page into overscroll.
+      if (to < 0 || to >= items.length) return;
+      _pager.animateToPage(
+        to,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.ease,
+      );
+    }
+
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () => step(-1),
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () => step(1),
+        const SingleActivator(LogicalKeyboardKey.escape):
+            () => Navigator.of(context).maybePop(),
+      },
+      child: Focus(autofocus: true, child: viewer),
     );
   }
 
@@ -1346,7 +1379,7 @@ class _VideoStage extends StatelessWidget {
       return _ViewerError(
         message: "Couldn't play this video",
         detail:
-            "Your phone might not be able to decode it - it's still safe on "
+            "This device might not be able to decode it - it's still safe on "
             'GitHub.',
         onRetry: onRetry,
       );

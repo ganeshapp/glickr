@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/album.dart';
 import '../models/media_item.dart';
+import '../platform.dart';
 import '../providers/config_provider.dart';
 import '../providers/services_provider.dart';
 import '../theme/app_theme.dart';
@@ -119,8 +120,13 @@ class _RemoteMediaState extends ConsumerState<RemoteMedia> {
         if (file == null) {
           // Never a broken-image glyph and never a spinner that spins forever.
           // A grid of calm cloud icons reads as "not downloaded yet"; a grid
-          // of broken images reads as a bug.
-          return const _Placeholder(icon: Icons.cloud_off_rounded);
+          // of broken images reads as a bug. Linux never has a video poster,
+          // so there the video badge alone marks the tile.
+          return _Placeholder(
+            icon: isLinux && widget.item.isVideo
+                ? null
+                : Icons.cloud_off_rounded,
+          );
         }
         return Image.file(
           file,

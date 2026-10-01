@@ -64,8 +64,8 @@ jobs:
 
   # Desktop builds can't run on the dev Mac (no Xcode), so this is where pods,
   # the 10.15 deployment target, -Werror C++ in the Linux plugins and linking
-  # libsecret/GTK get checked. Debug is enough for that; generated .g.dart
-  # files are committed and re-checked by the test job.
+  # libsecret/GTK get checked. Debug is enough for that; it builds the
+  # committed .g.dart files as they are (the test job regenerates its own).
   desktop:
     needs: test
     strategy:

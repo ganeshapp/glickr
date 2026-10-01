@@ -2,14 +2,15 @@
 
 _Last updated: 2026-08-20 (v1.0.0)_
 
-glickr is an open-source Android app that manages photo albums stored as folders
-in **your own GitHub repository**, so a Jekyll site can render them. Nothing you
-upload passes through a glickr server, because there is no glickr server.
+glickr is an open-source app for Android, macOS and Linux that manages photo
+albums stored as folders in **your own GitHub repository**, so a Jekyll site
+can render them. Nothing you upload passes through a glickr server, because
+there is no glickr server.
 
 ## The short version
 
 - There is **no glickr server, no analytics, no crash reporting and no account**.
-- Your photos go from your phone to **your own GitHub repository** and nowhere
+- Your photos go from your device to **your own GitHub repository** and nowhere
   else.
 - **EXIF metadata, including GPS coordinates, is stripped from every photo
   before upload.**

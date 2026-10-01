@@ -147,13 +147,22 @@ class GalleryNotifier extends _$GalleryNotifier {
   /// Linux has no photo library; a folder the user picks stands in for one.
   /// Cancelling the dialog keeps whatever is already showing.
   Future<void> _loadFolder() async {
-    final assets = await pickPhotoFolder();
-    if (assets == null) return;
-    state = GalleryState(
-      access: GalleryAccess.granted,
-      assets: assets,
-      hasMore: false,
-    );
+    try {
+      final assets = await pickPhotoFolder();
+      if (assets == null) return;
+      state = GalleryState(
+        access: GalleryAccess.granted,
+        assets: assets,
+        hasMore: false,
+        // Say why, or an iPhone export (HEIC, MOV) looks like a failed pick.
+        error:
+            assets.isEmpty
+                ? 'That folder has no JPEG, PNG or WebP photos.'
+                : null,
+      );
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
   }
 
   Future<void> selectBucket(AssetPathEntity bucket) async {

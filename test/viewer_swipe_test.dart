@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -550,6 +550,26 @@ void main() {
     );
     expect(find.text('the album grid'), findsOneWidget);
   });
+
+  testWidgets(
+    'on desktop the arrow keys page and Escape closes the viewer',
+    (tester) async {
+      await openOverGrid(tester, albumOf(3), at: 0);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await settle(tester);
+      expect(counter(tester, 3), '2 / 3', reason: where(tester, 3));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await settle(tester);
+      expect(counter(tester, 3), '1 / 3', reason: where(tester, 3));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(PhotoViewGallery), findsNothing);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
   testWidgets('a quick flick down dismisses without travelling far', (
     tester,

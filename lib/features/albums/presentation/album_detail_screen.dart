@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/album.dart';
 import '../../../core/models/media_item.dart';
+import '../../../core/platform.dart';
 import '../../../core/providers/album_actions_provider.dart';
 import '../../../core/providers/config_provider.dart';
 import '../../../core/providers/pending_captions_provider.dart';
@@ -500,15 +501,19 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                     // cards". Bottom room is for the FAB and the upload tray.
                     padding: EdgeInsets.only(bottom: 120 + bottomInset),
                     sliver: SliverGrid(
-                      // Three across on a 320-450dp phone, eight on a
-                      // 1100px window.
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 150,
-                            mainAxisSpacing: 2,
-                            crossAxisSpacing: 2,
-                            childAspectRatio: 1,
-                          ),
+                      // Three across on a phone in any orientation, as
+                      // always; as many as fit (eight at 1100px) on desktop.
+                      gridDelegate: isDesktop
+                          ? const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 150,
+                              mainAxisSpacing: 2,
+                              crossAxisSpacing: 2,
+                            )
+                          : const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              mainAxisSpacing: 2,
+                              crossAxisSpacing: 2,
+                            ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final item = items[index];
                         return StaggeredFadeIn(

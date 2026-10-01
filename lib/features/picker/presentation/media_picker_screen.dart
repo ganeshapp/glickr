@@ -37,12 +37,20 @@ class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
   static const int _columns = 4;
   static const double _gutter = 2;
 
-  /// Four across on a 360-430dp phone, as many as fit on a wide window.
-  static const _gridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(
-    maxCrossAxisExtent: 110,
-    crossAxisSpacing: _gutter,
-    mainAxisSpacing: _gutter,
-  );
+  /// Four across on a phone in any orientation, as always; as many as fit in
+  /// a desktop window.
+  static SliverGridDelegate get _gridDelegate =>
+      isDesktop
+          ? const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 110,
+            crossAxisSpacing: _gutter,
+            mainAxisSpacing: _gutter,
+          )
+          : const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: _columns,
+            crossAxisSpacing: _gutter,
+            mainAxisSpacing: _gutter,
+          );
 
   /// How close to the end of the grid triggers the next page. Roughly two rows
   /// of headroom on a phone, so the grid never actually reaches its end.
@@ -321,7 +329,7 @@ class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
       return EmptyState(
         icon: Icons.folder_open_rounded,
         title: 'Choose a folder of photos',
-        body: 'glickr reads JPEG, PNG and WebP.',
+        body: state.error ?? 'glickr reads JPEG, PNG and WebP.',
         action: ElevatedButton(
           onPressed: _load,
           child: const Text('Choose folder'),
@@ -454,24 +462,33 @@ class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
     // says "there is more" instead of stopping dead at a page boundary.
     final tail = state.hasMore ? _columns : 0;
 
-    return GridView.builder(
-      controller: _scroll,
-      padding: const EdgeInsets.fromLTRB(_gutter, 0, _gutter, _gutter),
-      gridDelegate: _gridDelegate,
-      itemCount: state.assets.length + tail,
-      itemBuilder: (context, index) {
-        if (index >= state.assets.length) {
-          return const ShimmerBlock(radius: 4);
-        }
-        final asset = state.assets[index];
-        final supported = isSupportedAsset(asset);
-        return _AssetTile(
-          asset: asset,
-          order: _order[asset.id],
-          supported: supported,
-          onTap: supported ? () => _toggle(asset) : null,
-        );
+    // Also checked whenever the grid's size changes, not only on scroll: a
+    // large desktop window fits a whole page with nothing left to scroll, so
+    // no scroll would ever ask for the next one.
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (_) {
+        _onScroll();
+        return false;
       },
+      child: GridView.builder(
+        controller: _scroll,
+        padding: const EdgeInsets.fromLTRB(_gutter, 0, _gutter, _gutter),
+        gridDelegate: _gridDelegate,
+        itemCount: state.assets.length + tail,
+        itemBuilder: (context, index) {
+          if (index >= state.assets.length) {
+            return const ShimmerBlock(radius: 4);
+          }
+          final asset = state.assets[index];
+          final supported = isSupportedAsset(asset);
+          return _AssetTile(
+            asset: asset,
+            order: _order[asset.id],
+            supported: supported,
+            onTap: supported ? () => _toggle(asset) : null,
+          );
+        },
+      ),
     );
   }
 

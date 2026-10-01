@@ -281,8 +281,8 @@ class MediaPipelineService {
     final ext = p.extension(source.path).toLowerCase();
     if (unsupportedVideoExtensions.contains(ext)) {
       throw MediaProcessingException(
-        '${ext.substring(1).toUpperCase()} videos cannot be converted on '
-        'Android - convert it on a computer first',
+        '${ext.substring(1).toUpperCase()} videos cannot be converted by '
+        'glickr - convert it to MP4 first',
       );
     }
 

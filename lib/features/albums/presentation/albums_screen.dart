@@ -1,9 +1,11 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/album.dart';
 import '../../../core/models/app_config.dart';
+import '../../../core/platform.dart';
 import '../../../core/providers/album_actions_provider.dart';
 import '../../../core/providers/albums_provider.dart';
 import '../../../core/providers/auth_provider.dart';
@@ -66,19 +68,27 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
         onRefresh: _refresh,
         color: scheme.primary,
         backgroundColor: scheme.surfaceContainerHigh,
-        child: CustomScrollView(
-          // AlwaysScrollable under the bouncing physics so pull-to-refresh
-          // still works on the empty and error states, where the content does
-          // not fill the viewport and a plain scroll view would refuse the
-          // drag outright.
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
+        // Desktop: the only refresh control, so a mouse must pull it like a
+        // finger. Only here - app-wide, a mouse drag in a long text field
+        // would scroll it instead of selecting.
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(
+            dragDevices: isDesktop ? PointerDeviceKind.values.toSet() : null,
           ),
-          slivers: [
-            _appBar(),
-            if (status != null) SliverToBoxAdapter(child: status),
-            _content(state, albums),
-          ],
+          child: CustomScrollView(
+            // AlwaysScrollable under the bouncing physics so pull-to-refresh
+            // still works on the empty and error states, where the content
+            // does not fill the viewport and a plain scroll view would refuse
+            // the drag outright.
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            slivers: [
+              _appBar(),
+              if (status != null) SliverToBoxAdapter(child: status),
+              _content(state, albums),
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(

@@ -199,8 +199,9 @@ class AboutScreen extends StatelessWidget {
                 _Paragraph(
                   'glickr talks only to github.com and '
                   'raw.githubusercontent.com. There is no glickr server, no '
-                  'analytics and no account - your GitHub token stays in the '
-                  'Android keystore on this device.',
+                  'analytics and no account - your GitHub token stays in '
+                  "this device's secure storage (Android keystore, macOS "
+                  'keychain or Linux keyring).',
                 ),
               ],
             ),
