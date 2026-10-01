@@ -117,7 +117,8 @@ class _UploadReviewSheetState extends ConsumerState<UploadReviewSheet> {
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _summaryController = TextEditingController();
+  final TextEditingController _noteController = TextEditingController();
 
   /// Keyed by asset id, created lazily so an untouched batch allocates none.
   final Map<String, TextEditingController> _captions = {};
@@ -146,7 +147,8 @@ class _UploadReviewSheetState extends ConsumerState<UploadReviewSheet> {
   void dispose() {
     _sheetController.dispose();
     _nameController.dispose();
-    _descriptionController.dispose();
+    _summaryController.dispose();
+    _noteController.dispose();
     for (final controller in _captions.values) {
       controller.dispose();
     }
@@ -271,7 +273,8 @@ class _UploadReviewSheetState extends ConsumerState<UploadReviewSheet> {
         final text = entry.value.text.trim();
         if (text.isNotEmpty) captions[entry.key] = text;
       }
-      final description = _descriptionController.text.trim();
+      final summary = _summaryController.text.trim();
+      final note = _noteController.text.trim();
 
       final job = await ref
           .read(uploadServiceProvider)
@@ -281,7 +284,8 @@ class _UploadReviewSheetState extends ConsumerState<UploadReviewSheet> {
             albumFolder: _folder,
             preset: _preset,
             isNewAlbum: _isNewAlbum,
-            blurb: _isNewAlbum && description.isNotEmpty ? description : null,
+            summary: _isNewAlbum && summary.isNotEmpty ? summary : null,
+            note: _isNewAlbum && note.isNotEmpty ? note : null,
             existingAlbum: _album,
             captions: captions,
             // Only a new album gets a cover from this sheet. The cover is
@@ -341,7 +345,7 @@ class _UploadReviewSheetState extends ConsumerState<UploadReviewSheet> {
           shouldCloseOnMinExtent: false,
           builder: (context, scrollController) {
             return FocusTraversalGroup(
-              // Name -> description -> caption, in the order they appear.
+              // Name -> summary -> note -> caption, in the order they appear.
               policy: ReadingOrderTraversalPolicy(),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -507,17 +511,29 @@ class _UploadReviewSheetState extends ConsumerState<UploadReviewSheet> {
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: TextField(
-          controller: _descriptionController,
-          maxLines: 2,
-          // Explicitly not multiline: TextInputAction.next only traverses when
-          // the keyboard is not offering a newline key.
-          keyboardType: TextInputType.text,
+          controller: _summaryController,
+          maxLength: kSummaryMaxLength,
           textCapitalization: TextCapitalization.sentences,
           textInputAction: TextInputAction.next,
           decoration: const InputDecoration(
-            labelText: 'Description',
-            hintText: 'Optional',
-            helperText: 'Saved as album.md, above the photos on your site.',
+            labelText: 'Summary',
+            hintText: 'Optional - Malaysia trip with friends',
+            helperText: 'One line, on your album list and under the title.',
+          ),
+        ),
+      ),
+      const SizedBox(height: 12),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: TextField(
+          controller: _noteController,
+          minLines: 2,
+          maxLines: 5,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            labelText: 'Note',
+            hintText: 'Optional - who came, what happened',
+            helperText: 'Markdown, saved as album.md, above the photos.',
           ),
         ),
       ),

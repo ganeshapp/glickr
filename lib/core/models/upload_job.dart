@@ -159,8 +159,9 @@ class UploadBatch {
   /// itself is identical either way, because git has no directories.
   final bool isNewAlbum;
 
-  /// Description to write to `album.md`, for a new album.
-  final String? blurb;
+  /// For a new album: the `album.json` summary and the `album.md` note.
+  final String? summary;
+  final String? note;
 
   final String qualityPresetName;
   final DateTime createdAt;
@@ -173,7 +174,8 @@ class UploadBatch {
     required this.albumFolder,
     required this.createdAt,
     this.isNewAlbum = false,
-    this.blurb,
+    this.summary,
+    this.note,
     this.qualityPresetName = 'medium',
     this.state = UploadBatchState.queued,
     this.attempts = 0,
@@ -198,7 +200,8 @@ class UploadBatch {
       albumFolder: albumFolder,
       createdAt: createdAt,
       isNewAlbum: isNewAlbum,
-      blurb: blurb,
+      summary: summary,
+      note: note,
       qualityPresetName: qualityPresetName,
       state: state ?? this.state,
       attempts: attempts ?? this.attempts,
@@ -210,7 +213,8 @@ class UploadBatch {
     'id': id,
     'albumFolder': albumFolder,
     'isNewAlbum': isNewAlbum,
-    'blurb': blurb,
+    'summary': summary,
+    'note': note,
     'qualityPresetName': qualityPresetName,
     'createdAt': createdAt.toIso8601String(),
     'state': state,
@@ -229,7 +233,8 @@ class UploadBatch {
           DateTime.tryParse(map['createdAt'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
       isNewAlbum: map['isNewAlbum'] as bool? ?? false,
-      blurb: map['blurb'] as String?,
+      summary: map['summary'] as String?,
+      note: map['note'] as String?,
       qualityPresetName: map['qualityPresetName'] as String? ?? 'medium',
       state: map['state'] as String? ?? UploadBatchState.queued,
       attempts: (map['attempts'] as num?)?.toInt() ?? 0,

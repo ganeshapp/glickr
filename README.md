@@ -32,7 +32,7 @@ up for you.
 - **Compress and convert** everything to JPEG or MP4 at Low / Medium / High, stripping EXIF
   (including GPS) on the way.
 - **Upload as one commit**, resumable. Thirty photos is one commit, not thirty.
-- **Manage albums**: rename, re-cover, edit descriptions and captions, delete photos or whole
+- **Manage albums**: rename, re-cover, edit summaries, notes and captions, delete photos or whole
   albums - each as a single atomic commit.
 
 ## How albums are stored
@@ -46,8 +46,8 @@ assets/albums/
     0001.jpg        <- the first photo, and therefore the album's cover
     0002.jpg
     0003.mp4
-    album.md        <- the album description, plain text
-    album.json      <- per-item captions
+    album.json      <- one-line "summary" and per-item captions
+    album.md        <- optional long note, markdown, album page only
   barcamp-days/
     ...
 ```

@@ -116,6 +116,32 @@ void main() {
     });
   });
 
+  group('summary', () {
+    test('is owned: read, rewritten on its own line, not kept as an extra', () {
+      final captions = AlbumCaptions.parse(
+        'trip',
+        '{"summary":" Ride to the coast ","items":{"0001.jpg":"a"}}',
+      );
+      expect(captions.summary, 'Ride to the coast');
+      expect(captions.extras, isEmpty);
+
+      final body = captions.withSummary('Coast ride').encode();
+      expect(body, contains('\n  "summary": "Coast ride",\n'));
+      expect((jsonDecode(body) as Map)['items'], {'0001.jpg': 'a'});
+    });
+
+    test('is not written when empty', () {
+      final captions = AlbumCaptions.empty(
+        'trip',
+      ).withSummary('Ride').withCaption('0001.jpg', 'a').withSummary('  ');
+      expect(jsonDecode(captions.encode()), isNot(contains('summary')));
+    });
+
+    test('on its own is enough to keep the file', () {
+      expect(AlbumCaptions.empty('trip').withSummary('Ride').isEmpty, isFalse);
+    });
+  });
+
   group('caption mutation', () {
     test('clearing a bare-string caption removes the entry entirely', () {
       final captions = AlbumCaptions.empty(

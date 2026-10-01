@@ -30,6 +30,11 @@ class AlbumCaptions {
   final String album;
   final int pad;
   final int next;
+
+  /// The one-line album summary for the listing card. Plain text; '' when the
+  /// album has none, and then not written at all.
+  final String summary;
+
   final Map<String, Object> items;
 
   /// Top-level keys glickr does not own, preserved verbatim on write.
@@ -39,6 +44,7 @@ class AlbumCaptions {
     required this.album,
     this.pad = kDefaultPadWidth,
     this.next = 1,
+    this.summary = '',
     this.items = const {},
     this.extras = const {},
   });
@@ -82,6 +88,7 @@ class AlbumCaptions {
         album: decoded['album'] as String? ?? album,
         pad: _asInt(decoded['pad']) ?? kDefaultPadWidth,
         next: _asInt(decoded['next']) ?? 1,
+        summary: (decoded['summary'] as String? ?? '').trim(),
         items: items,
         extras: extras,
       );
@@ -96,6 +103,7 @@ class AlbumCaptions {
     'pad',
     'next',
     'updated',
+    'summary',
     'items',
   };
 
@@ -189,11 +197,15 @@ class AlbumCaptions {
 
   AlbumCaptions withPad(int value) => _copy(pad: value);
 
-  bool get isEmpty => items.isEmpty && extras.isEmpty && next <= 1;
+  AlbumCaptions withSummary(String value) => _copy(summary: value.trim());
+
+  bool get isEmpty =>
+      items.isEmpty && extras.isEmpty && next <= 1 && summary.isEmpty;
 
   AlbumCaptions _copy({
     int? pad,
     int? next,
+    String? summary,
     Map<String, Object>? items,
     Map<String, dynamic>? extras,
   }) {
@@ -201,6 +213,7 @@ class AlbumCaptions {
       album: album,
       pad: pad ?? this.pad,
       next: next ?? this.next,
+      summary: summary ?? this.summary,
       items: items ?? this.items,
       extras: extras ?? this.extras,
     );
@@ -222,6 +235,9 @@ class AlbumCaptions {
       '  "updated": '
       '${jsonEncode((updatedAt ?? DateTime.now()).toUtc().toIso8601String())},\n',
     );
+    if (summary.isNotEmpty) {
+      buffer.write('  "summary": ${jsonEncode(summary)},\n');
+    }
 
     for (final entry in extras.entries) {
       buffer.write('  ${jsonEncode(entry.key)}: ${jsonEncode(entry.value)},\n');

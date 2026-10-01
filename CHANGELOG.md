@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **An album now has a summary and an optional note.** The summary is one line
+  in `album.json`, shown on the album list and under the title; the note is
+  markdown in `album.md`, shown only on the album page. Both can be set when
+  creating an album, and are edited together in one commit.
+
 ## 1.0.2 — 2026-08-20
 
 Two bugs found using 1.0.1, both older than it.

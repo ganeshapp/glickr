@@ -63,9 +63,9 @@ account.
 - Files are renamed to a four-digit sequence number in the order you selected
   them (`0001.jpg`, `0002.mp4`, and so on). The original filename is not
   uploaded.
-- Captions you write are stored in `album.json` inside the album folder, and
-  album descriptions in `album.md`. Both are committed to your repository like
-  any other file.
+- Captions and album summaries you write are stored in `album.json` inside the
+  album folder, and album notes in `album.md`. Both are committed to your
+  repository like any other file.
 
 ## What the app stores on your device
 

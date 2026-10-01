@@ -289,6 +289,53 @@ void main() {
     ]);
   });
 
+  group('summary and note', () {
+    UploadBatch described(String folder) => UploadBatch(
+      id: 'batch-1',
+      albumFolder: folder,
+      createdAt: DateTime(2026, 1, 1),
+      isNewAlbum: true,
+      summary: 'Coast ride',
+      note: 'Who came: everyone',
+    );
+
+    test('a new album gets both, in the same commit as its photos', () async {
+      final batch = described('cycling_trip');
+      await queue.putJob(batch, uploadedItems(1));
+
+      await service.run(batch, config: config);
+
+      expect(git.createCommitCalls, 1);
+      expect(git.committedEntries.map((e) => e.path), [
+        'cycling_trip/0001.jpg',
+        'cycling_trip/album.md',
+        'cycling_trip/album.json',
+      ]);
+      expect(git.writtenBlobs, contains('Who came: everyone\n'));
+      final sidecar = jsonDecode(git.writtenBlobs.last) as Map;
+      expect(sidecar['summary'], 'Coast ride');
+      expect(sidecar['items'], {'0001.jpg': 'caption 1'});
+    });
+
+    test('an album that already has them keeps its own', () async {
+      final batch = described('cycling_trip');
+      await queue.putJob(batch, uploadedItems(1));
+      git
+        ..nodes = [
+          blob('cycling_trip/0001.jpg', 'already-there'),
+          blob('cycling_trip/album.json', 'captions-sha'),
+          blob('cycling_trip/album.md', 'note-sha'),
+        ]
+        ..blobText = jsonEncode({'next': 2, 'summary': 'Old', 'items': {}});
+
+      await service.run(batch, config: config);
+
+      final paths = git.committedEntries.map((e) => e.path);
+      expect(paths, isNot(contains('cycling_trip/album.md')));
+      expect((jsonDecode(git.writtenBlobs.last) as Map)['summary'], 'Old');
+    });
+  });
+
   test('a batch with nothing preparable burns an attempt', () async {
     final batch = batchFor('cycling_trip');
     await queue.putJob(batch, [

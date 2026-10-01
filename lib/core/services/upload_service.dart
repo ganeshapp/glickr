@@ -112,7 +112,8 @@ class UploadService {
     required String albumFolder,
     required QualityPreset preset,
     bool isNewAlbum = false,
-    String? blurb,
+    String? summary,
+    String? note,
     Album? existingAlbum,
     Map<String, String> captions = const {},
     String? coverAssetId,
@@ -158,7 +159,8 @@ class UploadService {
       albumFolder: albumFolder,
       createdAt: DateTime.now(),
       isNewAlbum: isNewAlbum,
-      blurb: blurb,
+      summary: summary,
+      note: note,
       qualityPresetName: preset.name,
     );
 
@@ -423,7 +425,7 @@ class UploadService {
     // independently of what they are called.
     final publishedShas = <String>{};
     String? captionsSha;
-    String? blurbSha;
+    String? noteSha;
 
     for (final node in tree.nodes) {
       if (!node.isBlob || !node.path.startsWith(prefix)) continue;
@@ -433,8 +435,8 @@ class UploadService {
         captionsSha = node.sha;
         continue;
       }
-      if (name == kBlurbFile) {
-        blurbSha = node.sha;
+      if (name == kNoteFile) {
+        noteSha = node.sha;
         continue;
       }
       existingNames.add(name);
@@ -528,16 +530,19 @@ class UploadService {
     // inheriting a deleted photo's caption.
     captions = captions.withNext(next).withPad(pad);
 
-    final blurb = batch.blurb?.trim();
-    if (blurb != null && blurb.isNotEmpty && blurbSha == null) {
-      // Only written when the album has no description yet, so an upload
-      // never silently overwrites one edited on another device.
+    // Summary and note are only written when the album has none yet, so an
+    // upload never silently overwrites one edited on another device.
+    if (captions.summary.isEmpty) {
+      captions = captions.withSummary(batch.summary ?? '');
+    }
+    final note = batch.note?.trim();
+    if (note != null && note.isNotEmpty && noteSha == null) {
       final sha = await _git.createBlob(
         config.repoOwner,
         config.repoName,
-        Uint8List.fromList(utf8.encode('$blurb\n')),
+        Uint8List.fromList(utf8.encode('$note\n')),
       );
-      entries.add(TreeEntry.file('$prefix$kBlurbFile', sha));
+      entries.add(TreeEntry.file('$prefix$kNoteFile', sha));
     }
 
     // The sidecar only ever changes as a consequence of committing media in

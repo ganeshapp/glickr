@@ -15,6 +15,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/remote_media.dart';
 import '../../picker/presentation/media_picker_screen.dart';
 import '../../viewer/presentation/photo_viewer_screen.dart';
+import '../widgets/description_dialog.dart';
 import '../widgets/media_tile.dart';
 
 enum _AlbumMenu { description, rename, web, discardCaptions, delete }
@@ -133,18 +134,17 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
   }
 
   Future<void> _editDescription(Album album) async {
-    final text = await showDialog<String>(
-      context: context,
-      builder: (_) => _DescriptionDialog(initial: album.blurb),
-    );
-    if (text == null || !mounted) return;
+    final edit = await showDescriptionDialog(context, album);
+    if (edit == null || !mounted) return;
 
     final result = await ref
         .read(albumActionsProvider.notifier)
-        .setDescription(album, text);
+        .setDescription(album, summary: edit.summary, note: edit.note);
     _report(
       result,
-      text.trim().isEmpty ? 'Description removed' : 'Description saved',
+      edit.summary.isEmpty && edit.note.isEmpty
+          ? 'Description removed'
+          : 'Description saved',
     );
   }
 
@@ -735,7 +735,8 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
 
   Widget _description(Album album, List<MediaItem> items) {
     final scheme = context.colorScheme;
-    final blurb = album.blurb.trim();
+    final summary = album.summary;
+    final note = album.note;
 
     return SliverToBoxAdapter(
       child: Padding(
@@ -752,8 +753,17 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                 borderRadius: BorderRadius.circular(10),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: blurb.isNotEmpty
-                      ? Text(blurb, style: context.textTheme.bodyLarge)
+                  child: summary.isNotEmpty || note.isNotEmpty
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          spacing: 8,
+                          children: [
+                            if (summary.isNotEmpty)
+                              Text(summary, style: context.textTheme.bodyLarge),
+                            if (note.isNotEmpty)
+                              Text(note, style: context.textTheme.bodyMedium),
+                          ],
+                        )
                       // A ghost row rather than nothing: an album with no
                       // description should still show where one would go.
                       : Row(
@@ -922,67 +932,6 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                 ),
               ),
       ),
-    );
-  }
-}
-
-/// Editor for `album.md`.
-class _DescriptionDialog extends StatefulWidget {
-  final String initial;
-
-  const _DescriptionDialog({required this.initial});
-
-  @override
-  State<_DescriptionDialog> createState() => _DescriptionDialogState();
-}
-
-class _DescriptionDialogState extends State<_DescriptionDialog> {
-  late final TextEditingController _controller = TextEditingController(
-    text: widget.initial.trim(),
-  );
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('Description', style: context.textTheme.titleLarge),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            minLines: 3,
-            maxLines: 6,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              hintText: 'What was this day about?',
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Saved as album.md in the album folder, and shown above the photos '
-            'on your site.',
-            style: context.textTheme.bodySmall,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(_controller.text),
-          child: const Text('Save'),
-        ),
-      ],
     );
   }
 }

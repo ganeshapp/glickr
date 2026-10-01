@@ -18,11 +18,11 @@ class AlbumAdapter extends TypeAdapter<Album> {
     };
     return Album(
       folder: fields[0] as String,
-      blurb: fields[1] as String,
+      note: fields[1] as String,
       items: (fields[2] as List?)?.cast<MediaItem>(),
     )
       ..treeShaRaw = fields[3] as String?
-      ..blurbShaRaw = fields[4] as String?
+      ..noteShaRaw = fields[4] as String?
       ..captionsShaRaw = fields[5] as String?
       ..captionsJsonRaw = fields[6] as String?
       ..nextNumberRaw = fields[7] as int?
@@ -36,13 +36,13 @@ class AlbumAdapter extends TypeAdapter<Album> {
       ..writeByte(0)
       ..write(obj.folder)
       ..writeByte(1)
-      ..write(obj.blurb)
+      ..write(obj.note)
       ..writeByte(2)
       ..write(obj.items)
       ..writeByte(3)
       ..write(obj.treeShaRaw)
       ..writeByte(4)
-      ..write(obj.blurbShaRaw)
+      ..write(obj.noteShaRaw)
       ..writeByte(5)
       ..write(obj.captionsShaRaw)
       ..writeByte(6)

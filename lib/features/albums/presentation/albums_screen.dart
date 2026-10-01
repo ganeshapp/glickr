@@ -21,6 +21,7 @@ import '../../picker/presentation/media_picker_screen.dart';
 import '../../settings/presentation/about_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../widgets/album_card.dart';
+import '../widgets/description_dialog.dart';
 import 'album_detail_screen.dart';
 
 enum _MenuAction { sort, openSite, changeRepo, about }
@@ -732,62 +733,12 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
   }
 
   Future<void> _editDescription(Album album) async {
-    final controller = TextEditingController(text: album.blurb);
-    String? typed;
-    try {
-      typed = await showDialog<String>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Edit description'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  minLines: 3,
-                  maxLines: 6,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    hintText: 'What was this one about?',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Saved as album.md in the folder, and shown under the album '
-                  'title on your site.',
-                  style: context.textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      );
-    } finally {
-      controller.dispose();
-    }
-
-    if (typed == null || !mounted) return;
-    // No commit for a no-op edit - every save here is a real git commit
-    // against the user's rate limit.
-    if (typed.trim() == album.blurb.trim()) return;
+    final edit = await showDescriptionDialog(context, album);
+    if (edit == null || !mounted) return;
 
     final result = await ref
         .read(albumActionsProvider.notifier)
-        .setDescription(album, typed.trim());
+        .setDescription(album, summary: edit.summary, note: edit.note);
     _snack(
       result.ok
           ? 'Description saved'
