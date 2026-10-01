@@ -81,7 +81,7 @@ jobs:
       - if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libsecret-1-dev
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libsecret-1-dev dpkg-dev
 
       - uses: subosito/flutter-action@v2
         with:
@@ -89,4 +89,13 @@ jobs:
           channel: stable
           cache: true
 
-      - run: flutter build ${{ matrix.target }} --debug
+      # The same release build and packaging the release workflow runs, so a
+      # broken .deb/.dmg shows up on the PR instead of after tagging.
+      - run: flutter build ${{ matrix.target }} --release
+      - run: tool/package_desktop.sh ${{ matrix.target }}
+      - if: runner.os == 'Linux'
+        run: sudo apt-get install -y ./build/dist/*.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.target }}
+          path: build/dist/*
