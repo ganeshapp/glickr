@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
-import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 
 import '../../../core/models/album.dart';
 import '../../../core/models/app_config.dart';
@@ -9,6 +8,7 @@ import '../../../core/providers/albums_provider.dart';
 import '../../../core/providers/config_provider.dart';
 import '../../../core/providers/services_provider.dart';
 import '../../../core/providers/upload_provider.dart';
+import '../../../core/services/linux_media.dart';
 import '../../../core/services/media_pipeline_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/album_conventions.dart';
@@ -1003,11 +1003,7 @@ class _Thumb extends StatelessWidget {
               children: [
                 ColoredBox(color: context.colorScheme.surfaceContainer),
                 Image(
-                  image: AssetEntityImageProvider(
-                    asset,
-                    isOriginal: false,
-                    thumbnailSize: const ThumbnailSize.square(200),
-                  ),
+                  image: assetThumbnail(asset, 200),
                   fit: BoxFit.cover,
                   gaplessPlayback: true,
                   errorBuilder:

@@ -9,7 +9,9 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:video_compress/video_compress.dart';
 
 import '../models/app_config.dart';
+import '../platform.dart';
 import '../utils/album_conventions.dart';
+import 'linux_media.dart';
 
 /// Concrete numbers behind Low / Medium / High.
 class PresetSpec {
@@ -172,7 +174,7 @@ class MediaPipelineService {
     // metadata before the app ever sees it, and once the EXIF orientation tag
     // is gone the compressor cannot bake in the rotation, so portrait photos
     // come out sideways.
-    final source = await asset.originFile;
+    final source = await assetSourceFile(asset);
     if (source == null || !await source.exists()) {
       throw const MediaProcessingException(
         "Couldn't read this photo from your gallery",
@@ -188,37 +190,46 @@ class MediaPipelineService {
 
     File? out;
     try {
-      final result = await FlutterImageCompress.compressAndGetFile(
-        source.absolute.path,
-        targetPath,
-        // NOT a max-dimension box: the plugin computes
-        // scale = max(1, min(w/minWidth, h/minHeight)), which makes both
-        // output axes >= what is passed. Passing the same value twice
-        // therefore pins the SHORT edge, so a 4032x3024 photo asked for
-        // "1600" comes back 2133x1600. An exact target pair is the only way
-        // to actually cap the long edge.
-        minWidth: target.width,
-        minHeight: target.height,
-        quality: spec.jpegQuality,
-        format: CompressFormat.jpeg,
-        // Strip EXIF: GPS coordinates in a public repo are forever, and git
-        // history keeps them even after the photo is deleted.
-        keepExif: false,
-        // Bakes the EXIF rotation into the pixels AND transposes the target
-        // dimensions for 90/270 sources. Turning it off is what produces
-        // sideways portraits.
-        autoCorrectionAngle: true,
-        // Decode downsampled. Without it a 48 MP photo is decoded at full
-        // ARGB_8888 - 192 MB - and the plugin's OOM recovery path ends in a
-        // bare `return` that writes nothing, so Dart receives an EMPTY file
-        // rather than an error.
-        inSampleSize: _sampleSize(
-          math.max(asset.orientatedWidth, asset.orientatedHeight),
-          spec.imageMaxEdge,
-        ),
-        numberOfRetries: 5,
-      );
-      out = result == null ? null : File(result.path);
+      if (isLinux) {
+        out = await encodeJpeg(
+          source.path,
+          targetPath,
+          maxEdge: spec.imageMaxEdge,
+          quality: spec.jpegQuality,
+        );
+      } else {
+        final result = await FlutterImageCompress.compressAndGetFile(
+          source.absolute.path,
+          targetPath,
+          // NOT a max-dimension box: the plugin computes
+          // scale = max(1, min(w/minWidth, h/minHeight)), which makes both
+          // output axes >= what is passed. Passing the same value twice
+          // therefore pins the SHORT edge, so a 4032x3024 photo asked for
+          // "1600" comes back 2133x1600. An exact target pair is the only way
+          // to actually cap the long edge.
+          minWidth: target.width,
+          minHeight: target.height,
+          quality: spec.jpegQuality,
+          format: CompressFormat.jpeg,
+          // Strip EXIF: GPS coordinates in a public repo are forever, and git
+          // history keeps them even after the photo is deleted.
+          keepExif: false,
+          // Bakes the EXIF rotation into the pixels AND transposes the target
+          // dimensions for 90/270 sources. Turning it off is what produces
+          // sideways portraits.
+          autoCorrectionAngle: true,
+          // Decode downsampled. Without it a 48 MP photo is decoded at full
+          // ARGB_8888 - 192 MB - and the plugin's OOM recovery path ends in a
+          // bare `return` that writes nothing, so Dart receives an EMPTY file
+          // rather than an error.
+          inSampleSize: _sampleSize(
+            math.max(asset.orientatedWidth, asset.orientatedHeight),
+            spec.imageMaxEdge,
+          ),
+          numberOfRetries: 5,
+        );
+        out = result == null ? null : File(result.path);
+      }
     } catch (e) {
       throw MediaProcessingException(_photoErrorMessage(asset, e));
     }

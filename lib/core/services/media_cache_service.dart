@@ -9,6 +9,7 @@ import 'package:video_compress/video_compress.dart';
 import '../models/album.dart';
 import '../models/app_config.dart';
 import '../models/media_item.dart';
+import '../platform.dart';
 
 /// Decodes a still frame from the video at [videoPath], or null.
 ///
@@ -60,6 +61,7 @@ class MediaCacheService {
                // reason to evict is space. A year is effectively "never".
                stalePeriod: const Duration(days: 365),
                maxNrOfCacheObjects: maxObjects,
+               fileService: _UrlExtensionFileService(),
              ),
            ),
        _posterFrame = posterFrame;
@@ -131,6 +133,7 @@ class MediaCacheService {
     required MediaItem item,
     required String commitSha,
   }) async {
+    if (isLinux) return null; // no frame decoder: don't fetch a whole clip
     final key = posterKeyFor(item.blobSha);
     final hit = await _manager.getFileFromCache(key);
     if (hit != null) return hit.file;
@@ -213,4 +216,35 @@ class MediaCacheService {
       return 0;
     }
   }
+}
+
+/// raw.githubusercontent.com serves every video as application/octet-stream,
+/// so the cache would name it .bin - and AVFoundation (macOS player, poster
+/// frames) and the Linux desktop's default-app lookup go by the extension.
+class _UrlExtensionFileService extends HttpFileService {
+  @override
+  Future<FileServiceResponse> get(
+    String url, {
+    Map<String, String>? headers,
+  }) async => _WithExtension(
+    await super.get(url, headers: headers),
+    p.extension(Uri.parse(url).path),
+  );
+}
+
+class _WithExtension implements FileServiceResponse {
+  _WithExtension(this._inner, this.fileExtension);
+  final FileServiceResponse _inner;
+  @override
+  final String fileExtension;
+  @override
+  Stream<List<int>> get content => _inner.content;
+  @override
+  int? get contentLength => _inner.contentLength;
+  @override
+  int get statusCode => _inner.statusCode;
+  @override
+  DateTime get validTill => _inner.validTill;
+  @override
+  String? get eTag => _inner.eTag;
 }

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
-import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 
 import '../../../core/models/album.dart';
 import '../../../core/models/app_config.dart';
+import '../../../core/platform.dart';
 import '../../../core/providers/albums_provider.dart';
 import '../../../core/providers/config_provider.dart';
 import '../../../core/providers/gallery_provider.dart';
 import '../../../core/providers/services_provider.dart';
+import '../../../core/services/linux_media.dart';
 import '../../../core/services/media_pipeline_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -35,6 +36,13 @@ class MediaPickerScreen extends ConsumerStatefulWidget {
 class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
   static const int _columns = 4;
   static const double _gutter = 2;
+
+  /// Four across on a 360-430dp phone, as many as fit on a wide window.
+  static const _gridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(
+    maxCrossAxisExtent: 110,
+    crossAxisSpacing: _gutter,
+    mainAxisSpacing: _gutter,
+  );
 
   /// How close to the end of the grid triggers the next page. Roughly two rows
   /// of headroom on a phone, so the grid never actually reaches its end.
@@ -80,6 +88,7 @@ class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
   /// open, and keying off that alone would re-explain the permission to
   /// somebody who granted it months ago.
   Future<void> _resolveAccess() async {
+    if (isLinux) return _load();
     var granted = false;
     try {
       final state = await PhotoManager.getPermissionState(
@@ -242,6 +251,12 @@ class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
       appBar: AppBar(
         title: _title(state),
         actions: [
+          if (isLinux)
+            IconButton(
+              icon: const Icon(Icons.folder_open_rounded),
+              tooltip: 'Choose folder',
+              onPressed: _load,
+            ),
           if (_selected.isNotEmpty)
             TextButton(
               onPressed:
@@ -301,6 +316,18 @@ class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
   Widget _body(GalleryState state) {
     if (_resolvingAccess) return _skeletonGrid();
     if (_explainPermission) return _permissionPanel(context);
+
+    if (isLinux && state.assets.isEmpty) {
+      return EmptyState(
+        icon: Icons.folder_open_rounded,
+        title: 'Choose a folder of photos',
+        body: 'glickr reads JPEG, PNG and WebP.',
+        action: ElevatedButton(
+          onPressed: _load,
+          child: const Text('Choose folder'),
+        ),
+      );
+    }
 
     if (state.access == GalleryAccess.denied) {
       return EmptyState(
@@ -430,11 +457,7 @@ class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
     return GridView.builder(
       controller: _scroll,
       padding: const EdgeInsets.fromLTRB(_gutter, 0, _gutter, _gutter),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: _columns,
-        crossAxisSpacing: _gutter,
-        mainAxisSpacing: _gutter,
-      ),
+      gridDelegate: _gridDelegate,
       itemCount: state.assets.length + tail,
       itemBuilder: (context, index) {
         if (index >= state.assets.length) {
@@ -457,11 +480,7 @@ class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
       child: GridView.builder(
         physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.all(_gutter),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: _columns,
-          crossAxisSpacing: _gutter,
-          mainAxisSpacing: _gutter,
-        ),
+        gridDelegate: _gridDelegate,
         itemCount: _columns * 6,
         itemBuilder: (_, _) => const ShimmerBlock(radius: 4),
       ),
@@ -614,11 +633,7 @@ class _AssetTile extends StatelessWidget {
           // decoding full-resolution frames four-across would exhaust the heap
           // within a screen or two of scrolling.
           Image(
-            image: AssetEntityImageProvider(
-              asset,
-              isOriginal: false,
-              thumbnailSize: const ThumbnailSize.square(240),
-            ),
+            image: assetThumbnail(asset, 240),
             fit: BoxFit.cover,
             gaplessPlayback: true,
             frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {

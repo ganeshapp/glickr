@@ -6,7 +6,7 @@ part of 'gallery_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$galleryNotifierHash() => r'33e4dc05e7ac0cb77a8e2403d7c50f53ba016bd9';
+String _$galleryNotifierHash() => r'126c96fd59d4d74f2cbe22d130bbe232371efee7';
 
 /// The device gallery, paged.
 ///

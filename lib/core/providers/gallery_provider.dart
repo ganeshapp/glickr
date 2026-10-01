@@ -1,6 +1,9 @@
 import 'package:photo_manager/photo_manager.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../platform.dart';
+import '../services/linux_media.dart';
+
 part 'gallery_provider.g.dart';
 
 /// How much of the device gallery glickr is allowed to see.
@@ -94,6 +97,7 @@ class GalleryNotifier extends _$GalleryNotifier {
 
   /// Ask for gallery access and load the first page.
   Future<void> requestAndLoad() async {
+    if (isLinux) return _loadFolder();
     _restartPaging();
     state = state.copyWith(isLoading: true, clearError: true);
     try {
@@ -138,6 +142,18 @@ class GalleryNotifier extends _$GalleryNotifier {
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
+  }
+
+  /// Linux has no photo library; a folder the user picks stands in for one.
+  /// Cancelling the dialog keeps whatever is already showing.
+  Future<void> _loadFolder() async {
+    final assets = await pickPhotoFolder();
+    if (assets == null) return;
+    state = GalleryState(
+      access: GalleryAccess.granted,
+      assets: assets,
+      hasMore: false,
+    );
   }
 
   Future<void> selectBucket(AssetPathEntity bucket) async {

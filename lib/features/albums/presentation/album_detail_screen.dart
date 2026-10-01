@@ -500,9 +500,11 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                     // cards". Bottom room is for the FAB and the upload tray.
                     padding: EdgeInsets.only(bottom: 120 + bottomInset),
                     sliver: SliverGrid(
+                      // Three across on a 320-450dp phone, eight on a
+                      // 1100px window.
                       gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 150,
                             mainAxisSpacing: 2,
                             crossAxisSpacing: 2,
                             childAspectRatio: 1,

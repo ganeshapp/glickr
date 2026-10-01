@@ -10,11 +10,13 @@ import 'package:uuid/uuid.dart';
 import '../models/album.dart';
 import '../models/app_config.dart';
 import '../models/upload_job.dart';
+import '../platform.dart';
 import '../utils/album_captions.dart';
 import '../utils/album_conventions.dart';
 import 'commit_service.dart';
 import 'git_data_service.dart';
 import 'github_rate_gate.dart';
+import 'linux_media.dart';
 import 'media_cache_service.dart';
 import 'media_pipeline_service.dart';
 import 'upload_queue_service.dart';
@@ -374,7 +376,8 @@ class UploadService {
     if (assetId == null) {
       throw const MediaProcessingException('This item is no longer available');
     }
-    final asset = await AssetEntity.fromId(assetId);
+    final asset =
+        isLinux ? fileAsset(assetId) : await AssetEntity.fromId(assetId);
     if (asset == null) {
       // The user deleted it from their gallery after queueing.
       throw const MediaProcessingException(

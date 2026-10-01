@@ -7,10 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/models/album.dart';
 import '../../../core/models/media_item.dart';
+import '../../../core/platform.dart';
 import '../../../core/providers/album_actions_provider.dart';
 import '../../../core/providers/config_provider.dart';
 import '../../../core/providers/pending_captions_provider.dart';
@@ -217,7 +219,8 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
   /// controller inline would mutate, during a build, the very state that build
   /// has already read.
   void _syncVideo(MediaItem current) {
-    final wanted = current.isVideo ? current.blobSha : null;
+    // Linux has no video_player: its play button opens the default app.
+    final wanted = current.isVideo && !isLinux ? current.blobSha : null;
     if (wanted != _videoWanted) {
       _videoWanted = wanted;
       _videoFailed = false;
@@ -422,7 +425,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
       case _ViewerAction.details:
         _showDetails(album, item);
       case _ViewerAction.share:
-        unawaited(_share(item));
+        unawaited(isLinux ? _openExternally(item) : _share(item));
       case _ViewerAction.setCover:
         unawaited(_setCover(album, item));
       case _ViewerAction.delete:
@@ -454,6 +457,18 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
     } catch (_) {
       if (mounted) _snack("Couldn't open the share sheet.");
     }
+  }
+
+  /// Linux has no share sheet for files and no in-app video player: hand the
+  /// cached file to the desktop's default app instead.
+  Future<void> _openExternally(MediaItem item) async {
+    final file = _resolved[item.blobSha] ?? await _fileFor(item);
+    try {
+      if (file != null && await launchUrl(Uri.file(file.path))) return;
+    } catch (_) {
+      // Falls through to the snackbar.
+    }
+    if (mounted) _snack("Couldn't open that file.");
   }
 
   Future<void> _setCover(Album album, MediaItem item) async {
@@ -767,7 +782,8 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
           unavailable: requested && file == null,
           armed: isCurrent && _playWhenReady,
           onTap: _toggleChrome,
-          onPlayPause: () => unawaited(_togglePlay()),
+          onPlayPause:
+              () => unawaited(isLinux ? _openExternally(item) : _togglePlay()),
           onRetry: () => unawaited(_retry(item)),
         ),
       );
@@ -960,7 +976,10 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
                         ),
                         PopupMenuItem(
                           value: _ViewerAction.share,
-                          child: _menuRow(Icons.ios_share_rounded, 'Share'),
+                          child:
+                              isLinux
+                                  ? _menuRow(Icons.open_in_new_rounded, 'Open')
+                                  : _menuRow(Icons.ios_share_rounded, 'Share'),
                         ),
                         PopupMenuItem(
                           value: _ViewerAction.setCover,
