@@ -53,6 +53,7 @@ class _DescriptionDialogState extends State<_DescriptionDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: Text('Description', style: context.textTheme.titleLarge),
       content: SizedBox(
         width: double.maxFinite,

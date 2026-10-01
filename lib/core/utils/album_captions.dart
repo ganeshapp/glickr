@@ -88,7 +88,10 @@ class AlbumCaptions {
         album: decoded['album'] as String? ?? album,
         pad: _asInt(decoded['pad']) ?? kDefaultPadWidth,
         next: _asInt(decoded['next']) ?? 1,
-        summary: (decoded['summary'] as String? ?? '').trim(),
+        summary: switch (decoded['summary']) {
+          String s => s.trim(),
+          _ => '',
+        },
         items: items,
         extras: extras,
       );

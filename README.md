@@ -109,12 +109,13 @@ flutter run
 Requires Flutter 3.29.3. Newer SDKs currently break `hive_generator` / `riverpod_generator`
 codegen, so the version is pinned in CI too.
 
-## Showing captions on your site
+## Showing summaries and captions on your site
 
-Captions go into `album.json`, which most Jekyll album generators don't read - so they stay
-invisible on the website until you teach it to.
-[`extras/album-captions-jekyll.md`](extras/album-captions-jekyll.md) has the exact change: about ten
-lines of Ruby plus a Liquid tweak to render them under each photo and in the lightbox.
+The summary and captions go into `album.json`, which most Jekyll album generators don't read - so
+they stay invisible on the website until you teach it to. The note in `album.md` belongs on the
+album page only. ganeshapp.github.io's
+[`_plugins/albums.rb`](https://github.com/ganeshapp/ganeshapp.github.io/blob/main/_plugins/albums.rb)
+is a complete generator that reads all three.
 
 ## Design notes
 

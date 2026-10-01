@@ -273,8 +273,6 @@ class _UploadReviewSheetState extends ConsumerState<UploadReviewSheet> {
         final text = entry.value.text.trim();
         if (text.isNotEmpty) captions[entry.key] = text;
       }
-      final summary = _summaryController.text.trim();
-      final note = _noteController.text.trim();
 
       final job = await ref
           .read(uploadServiceProvider)
@@ -284,8 +282,8 @@ class _UploadReviewSheetState extends ConsumerState<UploadReviewSheet> {
             albumFolder: _folder,
             preset: _preset,
             isNewAlbum: _isNewAlbum,
-            summary: _isNewAlbum && summary.isNotEmpty ? summary : null,
-            note: _isNewAlbum && note.isNotEmpty ? note : null,
+            summary: _isNewAlbum ? _summaryController.text : null,
+            note: _isNewAlbum ? _noteController.text : null,
             existingAlbum: _album,
             captions: captions,
             // Only a new album gets a cover from this sheet. The cover is
@@ -518,7 +516,7 @@ class _UploadReviewSheetState extends ConsumerState<UploadReviewSheet> {
           decoration: const InputDecoration(
             labelText: 'Summary',
             hintText: 'Optional - Malaysia trip with friends',
-            helperText: 'One line, on your album list and under the title.',
+            helperText: 'On your album list and under the title.',
           ),
         ),
       ),

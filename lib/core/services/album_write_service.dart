@@ -55,6 +55,10 @@ class AlbumWriteService {
 
   /// Replace the album's summary (in `album.json`) and note (`album.md`), as
   /// ONE commit. An empty note deletes `album.md`.
+  ///
+  /// Only a field that differs from [album] - what the user started editing
+  /// from - is written. The other one keeps whatever the repo holds, so an
+  /// edit made on another device in the meantime survives.
   Future<CommitOutcome> setDescription({
     required AppConfig config,
     required Album album,
@@ -70,27 +74,33 @@ class AlbumWriteService {
       buildEntries: (tree) async {
         final entries = <TreeEntry>[];
 
-        final captions = await _readCaptions(config, tree, album.folder);
-        final edited = captions.withSummary(summary);
-        // Compared, not blob-checked: album.json's `updated` timestamp makes
-        // every encode a new blob.
-        if (edited.summary != captions.summary) {
+        if (summary.trim() != album.summary) {
+          final captions = await _readCaptions(config, tree, album.folder);
           entries.addAll(
-            await _captionEntries(config, tree, album.folder, edited),
+            await _captionEntries(
+              config,
+              tree,
+              album.folder,
+              captions.withSummary(summary),
+            ),
           );
         }
 
-        final existing = tree.nodes
-            .where((n) => n.isBlob && n.path == notePath)
-            .firstOrNull;
-        if (trimmed.isEmpty) {
-          if (existing != null) {
-            entries.add(TreeEntry.delete(notePath, mode: existing.mode));
+        if (trimmed != album.note) {
+          final existing = tree.nodes
+              .where((n) => n.isBlob && n.path == notePath)
+              .firstOrNull;
+          if (trimmed.isEmpty) {
+            if (existing != null) {
+              entries.add(TreeEntry.delete(notePath, mode: existing.mode));
+            }
+          } else {
+            // Trailing newline so the file is a well-formed text file in git.
+            final sha = await _blob(config, '$trimmed\n');
+            if (existing?.sha != sha) {
+              entries.add(TreeEntry.file(notePath, sha));
+            }
           }
-        } else {
-          // Trailing newline so the file is a well-formed text file in git.
-          final sha = await _blob(config, '$trimmed\n');
-          if (existing?.sha != sha) entries.add(TreeEntry.file(notePath, sha));
         }
         return entries;
       },

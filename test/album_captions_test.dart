@@ -137,6 +137,15 @@ void main() {
       expect(jsonDecode(captions.encode()), isNot(contains('summary')));
     });
 
+    test('of the wrong type is dropped without costing the captions', () {
+      final captions = AlbumCaptions.parse(
+        'trip',
+        '{"summary":5,"items":{"0001.jpg":"a"}}',
+      );
+      expect(captions.summary, '');
+      expect(captions.items, {'0001.jpg': 'a'});
+    });
+
     test('on its own is enough to keep the file', () {
       expect(AlbumCaptions.empty('trip').withSummary('Ride').isEmpty, isFalse);
     });

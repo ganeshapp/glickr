@@ -159,8 +159,10 @@ class UploadBatch {
   /// itself is identical either way, because git has no directories.
   final bool isNewAlbum;
 
-  /// For a new album: the `album.json` summary and the `album.md` note.
+  /// For a new album: the `album.json` summary.
   final String? summary;
+
+  /// For a new album: the `album.md` note.
   final String? note;
 
   final String qualityPresetName;

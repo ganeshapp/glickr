@@ -134,6 +134,7 @@ void main() {
     expect(git.fetched, isEmpty);
     expect(again.items.single.caption, '6am start, rewritten');
   });
+
   test('summary comes from album.json and the note from album.md', () async {
     final git = _StubGit([
       ..._tree,
