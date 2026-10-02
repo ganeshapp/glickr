@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../providers/auth_provider.dart';
 import 'github_oauth_service.dart';
@@ -96,39 +99,52 @@ class ApiClient {
   ApiClient({
     required SecureStorageService secureStorage,
     GitHubOAuthService? oauthService,
-  })  : _secureStorage = secureStorage,
-        _oauthService = oauthService {
-    dio = Dio(BaseOptions(
-      baseUrl: 'https://api.github.com',
-      connectTimeout: const Duration(seconds: 30),
-      // Blob uploads are the long pole: an 18 MB video inflates to ~24 MB of
-      // base64, which is well over three minutes on a slow mobile uplink
-      // before GitHub even starts processing it. 60s - the usual default -
-      // fails those on any connection worse than office wifi.
-      sendTimeout: const Duration(minutes: 5),
-      receiveTimeout: const Duration(seconds: 90),
-      headers: {
-        'Accept': 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'glickr',
-      },
-    ));
+  }) : _secureStorage = secureStorage,
+       _oauthService = oauthService {
+    dio = Dio(
+      BaseOptions(
+        baseUrl: 'https://api.github.com',
+        connectTimeout: const Duration(seconds: 30),
+        // Blob uploads are the long pole: an 18 MB video inflates to ~24 MB of
+        // base64, which is well over three minutes on a slow mobile uplink
+        // before GitHub even starts processing it. 60s - the usual default -
+        // fails those on any connection worse than office wifi.
+        sendTimeout: const Duration(minutes: 5),
+        receiveTimeout: const Duration(seconds: 90),
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'User-Agent': 'glickr',
+        },
+      ),
+    );
 
-    dio.interceptors.add(InterceptorsWrapper(
-      onRequest: _onRequest,
-      onError: _onError,
-    ));
+    // GitHub asks for a User-Agent that identifies the app. The version
+    // arrives from the platform a moment later; the first request or two may
+    // go out as plain 'glickr'.
+    unawaited(
+      PackageInfo.fromPlatform().then(
+        (info) => dio.options.headers['User-Agent'] = 'glickr/${info.version}',
+        onError: (_) {},
+      ),
+    );
+
+    dio.interceptors.add(
+      InterceptorsWrapper(onRequest: _onRequest, onError: _onError),
+    );
 
     // Debug-only logging; requestHeader stays false so the
     // Authorization header (the token) never reaches device logs
     if (kDebugMode) {
-      dio.interceptors.add(LogInterceptor(
-        requestHeader: false,
-        requestBody: false,
-        responseHeader: false,
-        responseBody: false,
-        error: true,
-      ));
+      dio.interceptors.add(
+        LogInterceptor(
+          requestHeader: false,
+          requestBody: false,
+          responseHeader: false,
+          responseBody: false,
+          error: true,
+        ),
+      );
     }
   }
 
@@ -250,9 +266,12 @@ class ApiClient {
         // GitHub always rotates, but never burn the old one on a
         // response that omits it
         refreshToken: tokens.refreshToken ?? refreshToken,
-        accessTokenExpiry: tokens.expiresInSeconds != null
-            ? DateTime.now().add(Duration(seconds: tokens.expiresInSeconds!))
-            : null,
+        accessTokenExpiry:
+            tokens.expiresInSeconds != null
+                ? DateTime.now().add(
+                  Duration(seconds: tokens.expiresInSeconds!),
+                )
+                : null,
       );
     } on OAuthRefreshDenied {
       // The session is definitively dead: same path as a mid-session 401
@@ -266,13 +285,15 @@ class ApiClient {
   void _onError(DioException e, ErrorInterceptorHandler handler) {
     final rateLimit = _classifyRateLimit(e.response);
     if (rateLimit != null) {
-      handler.reject(DioException(
-        requestOptions: e.requestOptions,
-        response: e.response,
-        type: DioExceptionType.badResponse,
-        error: rateLimit,
-        message: rateLimit.message,
-      ));
+      handler.reject(
+        DioException(
+          requestOptions: e.requestOptions,
+          response: e.response,
+          type: DioExceptionType.badResponse,
+          error: rateLimit,
+          message: rateLimit.message,
+        ),
+      );
       return;
     }
 
@@ -319,9 +340,10 @@ class ApiClient {
     // No headers: only a secondary limit if GitHub's message says so,
     // otherwise this is an ordinary permission denial.
     final data = response.data;
-    final body = (data is Map && data['message'] is String)
-        ? (data['message'] as String).toLowerCase()
-        : '';
+    final body =
+        (data is Map && data['message'] is String)
+            ? (data['message'] as String).toLowerCase()
+            : '';
     if (body.contains('secondary rate limit') ||
         body.contains('exceeded a secondary')) {
       return const GitHubRateLimitException(
@@ -352,13 +374,15 @@ class ApiClient {
   /// Minutes (>= 1, rounded up) until the rate limit resets, from
   /// Retry-After (seconds) or X-RateLimit-Reset (epoch seconds)
   static int _waitMinutes(Response<dynamic> response) {
-    final retrySeconds =
-        int.tryParse(response.headers.value('retry-after') ?? '');
+    final retrySeconds = int.tryParse(
+      response.headers.value('retry-after') ?? '',
+    );
     if (retrySeconds != null) {
       return _ceilMinutes(Duration(seconds: retrySeconds));
     }
-    final resetEpoch =
-        int.tryParse(response.headers.value('x-ratelimit-reset') ?? '');
+    final resetEpoch = int.tryParse(
+      response.headers.value('x-ratelimit-reset') ?? '',
+    );
     if (resetEpoch != null) {
       final reset = DateTime.fromMillisecondsSinceEpoch(resetEpoch * 1000);
       return _ceilMinutes(reset.difference(DateTime.now()));
