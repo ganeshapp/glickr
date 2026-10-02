@@ -4,6 +4,11 @@
 
 ### Fixed
 
+- **Videos no longer carry their location into your repo.** The video
+  re-encoder keeps the source clip's metadata - the GPS fix on an Android
+  recording, the location and camera keys on a Mac - while photos had theirs
+  stripped. glickr now blanks the MP4's metadata boxes before upload, and
+  skips a clip it cannot do that to.
 - **A keychain that refuses no longer strands you on the splash screen.** On
   Linux without a Secret Service keyring, or after Deny on the macOS keychain
   prompt, the launch check now lands on the sign-in screen, and a sign-in

@@ -191,10 +191,10 @@ class AboutScreen extends StatelessWidget {
               ],
               children: [
                 _Paragraph(
-                  'Location and camera EXIF are stripped from every photo '
-                  'before upload. Git history keeps whatever it is given '
-                  'forever, so this happens on the way out rather than being '
-                  'something to clean up later.',
+                  'Location and camera metadata are stripped from every photo '
+                  'and video before upload. Git history keeps whatever it is '
+                  'given forever, so this happens on the way out rather than '
+                  'being something to clean up later.',
                 ),
                 _Paragraph(
                   'glickr talks only to github.com and '

@@ -13,7 +13,8 @@ there is no glickr server.
 - Your photos go from your device to **your own GitHub repository** and nowhere
   else.
 - **EXIF metadata, including GPS coordinates, is stripped from every photo
-  before upload.**
+  before upload, and the metadata boxes carrying a video's location are
+  blanked.**
 - **A public repository is public forever, and git history keeps a photo even
   after you delete it.** See "What you should know before uploading" below.
 
@@ -60,7 +61,10 @@ account.
   implies, and **EXIF metadata - including GPS location, camera model and
   timestamps - is stripped**. The EXIF orientation tag is baked into the pixels
   first, so a rotated photo still appears the right way up.
-- Videos are re-encoded to MP4 and capped at 40 MB each.
+- Videos are re-encoded to MP4 and capped at 40 MB each. The re-encoder keeps
+  the source's container metadata, so glickr then blanks the `udta` and `meta`
+  boxes of the MP4 - where phones write the GPS fix and camera details - and
+  refuses to upload a clip it could not do that to.
 - Files are renamed to a four-digit sequence number in the order you selected
   them (`0001.jpg`, `0002.mp4`, and so on). The original filename is not
   uploaded.

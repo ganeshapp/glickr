@@ -12,6 +12,7 @@ import '../models/app_config.dart';
 import '../platform.dart';
 import '../utils/album_conventions.dart';
 import 'desktop_media.dart';
+import 'mp4_metadata.dart';
 
 /// Concrete numbers behind Low / Medium / High.
 class PresetSpec {
@@ -326,10 +327,8 @@ class MediaPipelineService {
       }
 
       final File moved;
-      final int bytes;
       try {
         moved = await compressed.copy(targetPath);
-        bytes = await moved.length();
       } on FileSystemException catch (e) {
         // The staging directory can vanish underneath a transcode - cancelling
         // a batch deletes it - and File.copy does not recreate parents. This
@@ -343,6 +342,20 @@ class MediaPipelineService {
               : "Couldn't save the converted video",
         );
       }
+      // The plugin carries the source's metadata over - Android's muxer
+      // rewrites the GPS fix, AVFoundation copies every key - and a public
+      // repo keeps a clip's location forever. Photos get their EXIF stripped;
+      // this is the video equivalent, and a clip it cannot vouch for is not
+      // uploaded.
+      try {
+        await stripMp4Metadata(moved);
+      } on FormatException {
+        await moved.delete().catchError((_) => moved);
+        throw const MediaProcessingException(
+          "Couldn't remove this video's location data, so it wasn't uploaded",
+        );
+      }
+      final bytes = await moved.length();
       return ProcessedMedia(
         file: moved,
         bytes: bytes,

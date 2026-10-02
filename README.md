@@ -29,8 +29,9 @@ up for you.
   so opening the app is instant and works on a plane.
 - **Pick from your gallery** in an in-app grid that shows selection *order* - because that order
   becomes the filenames, which is the order your website will display.
-- **Compress and convert** everything to JPEG or MP4 at Low / Medium / High, stripping EXIF
-  (including GPS) on the way.
+- **Compress and convert** everything to JPEG or MP4 at Low / Medium / High. Photos lose their
+  EXIF (including GPS) on the way; videos lose the container metadata a phone writes the GPS fix
+  and camera details into.
 - **Upload as one commit**, resumable. Thirty photos is one commit, not thirty.
 - **Manage albums**: rename, re-cover, edit summaries, notes and captions, delete photos or whole
   albums - each as a single atomic commit.
@@ -220,7 +221,8 @@ them for an existing tag, run that workflow by hand from the Actions tab.
 
 ## Privacy
 
-EXIF - including GPS coordinates - is stripped from every photo before upload. glickr talks only to
+EXIF - including GPS coordinates - is stripped from every photo before upload, and the metadata
+boxes carrying a video's location are blanked. glickr talks only to
 `github.com`. It has no server of its own, no analytics, and no account. Your token lives in the
 Android keystore, the macOS login keychain or the Linux Secret Service keyring.
 
