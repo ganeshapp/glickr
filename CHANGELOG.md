@@ -31,9 +31,12 @@
   `$XDG_CACHE_HOME`), created mode 0700. Before, the data folder moved between
   two names depending on whether a GLib development package was installed,
   and the cache sat in `/tmp` - shared with every account on the machine and
-  emptied at boot. On macOS the cache moves from the temp folder, which is
-  purged after three days, to `~/Library/Caches/com.glickr.glickr`. The
-  cache index now lives next to the files.
+  emptied at boot. On macOS the cache moves from `~/Library/Caches/glickrMedia`
+  to `~/Library/Caches/com.glickr.glickr`. The cache index now lives next to
+  the files. The first launch takes over what 1.1.0 and 1.1.1 left: on Linux
+  a data folder at `~/.local/share/glickr` is renamed, so the repo, queued
+  uploads and unsaved captions carry over, and the old cache folder and index
+  are deleted on both desktops.
 - **Linux: launching glickr while it is running raises the open window**
   instead of opening a second, blank one.
 - **macOS reads HEIC.** A folder exported from Photos is mostly HEIC, which

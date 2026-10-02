@@ -46,10 +46,53 @@ Future<Directory> appCacheDir() => switch (defaultTargetPlatform) {
 /// variable is unset or not absolute, as the XDG spec has it. Private to the
 /// user: Directory.create cannot set a mode, so chmod follows it.
 Future<Directory> _xdgDir(String variable, String fallback) async {
-  final env = debugEnvironmentOverride ?? Platform.environment;
-  final base = env[variable] ?? '';
-  final root = base.startsWith('/') ? base : p.join(env['HOME']!, fallback);
-  final dir = await Directory(p.join(root, appId)).create(recursive: true);
+  final dir = await Directory(
+    p.join(_xdgBase(variable, fallback), appId),
+  ).create(recursive: true);
   await Process.run('chmod', ['0700', dir.path]);
   return dir;
+}
+
+String _xdgBase(String variable, String fallback) {
+  final base = _environment[variable] ?? '';
+  if (base.startsWith('/')) return base;
+  // A session with no HOME has nowhere to put anything: say so, rather than
+  // fail a null check before the window has drawn.
+  final home = _environment['HOME'] ?? (throw StateError('HOME is not set'));
+  return p.join(home, fallback);
+}
+
+Map<String, String> get _environment =>
+    debugEnvironmentOverride ?? Platform.environment;
+
+/// Take over what 1.1.0 and 1.1.1 left on desktop, once.
+///
+/// Their media cache sat under path_provider's temp dir - ~/Library/Caches/
+/// glickrMedia on macOS, /tmp/glickrMedia on Linux - with its index in the
+/// data dir; and on Linux the data dir was named after the executable
+/// whenever libgio could not be dlopen'd. Nothing writes to those places any
+/// more, so this is self-limiting: once moved and deleted, there is nothing
+/// to find. Best effort - a failure here must not stop the launch.
+Future<void> adoptLegacyDesktopFiles() async {
+  if (!isDesktop) return;
+  try {
+    if (isLinux) {
+      final base = _xdgBase('XDG_DATA_HOME', '.local/share');
+      final old = Directory(p.join(base, 'glickr'));
+      final current = Directory(p.join(base, appId));
+      if (await old.exists() && !await current.exists()) {
+        await old.rename(current.path);
+      }
+    }
+    final temp =
+        isLinux
+            ? _environment['TMPDIR'] ?? '/tmp'
+            : (await getTemporaryDirectory()).path;
+    final cache = Directory(p.join(temp, 'glickrMedia'));
+    if (await cache.exists()) await cache.delete(recursive: true);
+    final index = File(p.join((await appDataDir()).path, 'glickrMedia.json'));
+    if (await index.exists()) await index.delete();
+  } catch (_) {
+    // Another account's /tmp/glickrMedia, a read-only home: leave it.
+  }
 }

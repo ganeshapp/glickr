@@ -333,6 +333,34 @@ void main() {
       );
     });
 
+    test("macOS deletes 1.1.x's cache in ~/Library/Caches and its index", () async {
+      runAs(TargetPlatform.macOS);
+      // path_provider's "temp" dir on macOS is ~/Library/Caches itself.
+      final caches = Directory(p.join(tmp.path, 'Caches'));
+      final support = Directory(p.join(tmp.path, 'Application Support'));
+      messenger.setMockMethodCallHandler(
+        channel,
+        (call) async => switch (call.method) {
+          'getTemporaryDirectory' => caches.path,
+          'getApplicationSupportDirectory' => support.path,
+          _ => null,
+        },
+      );
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      final cache = Directory(p.join(caches.path, 'glickrMedia'))
+        ..createSync(recursive: true);
+      File(p.join(cache.path, 'abc.jpg')).writeAsStringSync('x');
+      final index = File(p.join(support.path, 'glickrMedia.json'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('{}');
+
+      await adoptLegacyDesktopFiles();
+
+      expect(cache.existsSync(), isFalse);
+      expect(index.existsSync(), isFalse);
+      expect(caches.existsSync(), isTrue); // glickr's folder only, not the parent
+    });
+
     group('Linux', () {
       setUp(() {
         debugEnvironmentOverride = {'HOME': tmp.path};
@@ -376,6 +404,52 @@ void main() {
           );
         },
       );
+
+      test("1.1.x's executable-named data dir, /tmp cache and index are "
+          'taken over', () async {
+        runAs(TargetPlatform.linux);
+        debugEnvironmentOverride = {
+          'HOME': tmp.path,
+          'TMPDIR': p.join(tmp.path, 'tmp'),
+        };
+        final old = Directory(p.join(tmp.path, '.local/share/glickr'))
+          ..createSync(recursive: true);
+        File(p.join(old.path, 'albums_box.hive')).writeAsStringSync('albums');
+        File(p.join(old.path, 'glickrMedia.json')).writeAsStringSync('{}');
+        final cache = Directory(p.join(tmp.path, 'tmp/glickrMedia'))
+          ..createSync(recursive: true);
+        File(p.join(cache.path, 'abc.jpg')).writeAsStringSync('x');
+
+        await adoptLegacyDesktopFiles();
+
+        final data = p.join(tmp.path, '.local/share/com.glickr.glickr');
+        expect(old.existsSync(), isFalse);
+        expect(File(p.join(data, 'albums_box.hive')).readAsStringSync(), 'albums');
+        expect(File(p.join(data, 'glickrMedia.json')).existsSync(), isFalse);
+        expect(Directory(data).statSync().modeString(), 'rwx------');
+        expect(cache.existsSync(), isFalse);
+      });
+
+      test('a data dir already in the new place is never overwritten', () async {
+        runAs(TargetPlatform.linux);
+        final old = Directory(p.join(tmp.path, '.local/share/glickr'))
+          ..createSync(recursive: true);
+        final current = File(
+          p.join(tmp.path, '.local/share/com.glickr.glickr/albums_box.hive'),
+        )..createSync(recursive: true);
+        current.writeAsStringSync('current');
+
+        await adoptLegacyDesktopFiles();
+
+        expect(old.existsSync(), isTrue);
+        expect(current.readAsStringSync(), 'current');
+      });
+
+      test('no HOME is a clear error, not a null check', () async {
+        runAs(TargetPlatform.linux);
+        debugEnvironmentOverride = {};
+        await expectLater(appDataDir(), throwsStateError);
+      });
 
       test('the media cache is one directory: files, index and the number '
           'Settings shows', () async {
