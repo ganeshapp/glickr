@@ -329,7 +329,7 @@ class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
       return EmptyState(
         icon: Icons.folder_open_rounded,
         title: 'Choose a folder of photos',
-        body: state.error ?? 'glickr reads JPEG, PNG and WebP.',
+        body: state.error ?? 'glickr reads $photoFormats.',
         action: ElevatedButton(
           onPressed: _load,
           child: const Text('Choose folder'),

@@ -34,6 +34,9 @@
   cache index now lives next to the files.
 - **Linux: launching glickr while it is running raises the open window**
   instead of opening a second, blank one.
+- **macOS reads HEIC.** A folder exported from Photos is mostly HEIC, which
+  the pure-Dart encoder cannot decode; on a Mac each one now goes through the
+  system's `sips` first. Linux still lists JPEG, PNG and WebP only and says so.
 - **macOS picks photos from a folder, like Linux.** 1.1.0 read the Photos
   library, which on most Macs is empty, so "Add photos" showed nothing. Both
   desktops now use **Choose folder**; desktop uploads are photos only. (The

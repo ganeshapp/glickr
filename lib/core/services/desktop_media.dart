@@ -15,7 +15,25 @@ import '../platform.dart';
 // (a Mac's Photos app is usually empty; Linux has none). Desktop uploads
 // photos only, re-encoded in pure Dart; everything that differs is in here.
 
-const _photoExtensions = {'.jpg', '.jpeg', '.png', '.webp'};
+/// What the folder scan accepts. HEIC - what Photos exports by default - only
+/// where it can be converted: package:image has no HEIC decoder, but every
+/// Mac ships sips, which does.
+Set<String> get _photoExtensions => {
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  if (isMacOS) ...['.heic', '.heif'],
+};
+
+/// For copy that lists what [pickPhotoFolder] will show.
+String get photoFormats =>
+    isMacOS ? 'JPEG, PNG, WebP or HEIC' : 'JPEG, PNG or WebP';
+
+bool _isHeic(String path) {
+  final ext = p.extension(path).toLowerCase();
+  return ext == '.heic' || ext == '.heif';
+}
 
 /// A picked file standing in for a gallery asset: the id is its absolute path
 /// and only id and type mean anything. Never hand one to a photo_manager API -
@@ -57,7 +75,36 @@ Future<File> encodeJpeg(
   String target, {
   required int maxEdge,
   required int quality,
-}) {
+}) async {
+  if (!_isHeic(source)) return _encodeJpeg(source, target, maxEdge, quality);
+  if (!isMacOS) {
+    throw const FormatException(
+      'HEIC photos cannot be converted here - export them as JPEG first',
+    );
+  }
+  // sips keeps the EXIF orientation tag and leaves the pixels unrotated, so
+  // the decoder below applies it exactly once. The intermediate sits next
+  // to the target, in the staging directory, not in /tmp.
+  final jpeg = '$target.heic.jpg';
+  final sips = await Process.run('sips', [
+    ...['-s', 'format', 'jpeg', source, '--out', jpeg],
+  ]);
+  if (sips.exitCode != 0) {
+    throw FormatException("Couldn't convert this HEIC photo: ${sips.stderr}");
+  }
+  try {
+    return await _encodeJpeg(jpeg, target, maxEdge, quality);
+  } finally {
+    await File(jpeg).delete().catchError((_) => File(jpeg));
+  }
+}
+
+Future<File> _encodeJpeg(
+  String source,
+  String target,
+  int maxEdge,
+  int quality,
+) {
   return Isolate.run(() {
     // package:image's JPEG decoder applies the EXIF orientation itself.
     var image = img.decodeImage(File(source).readAsBytesSync());

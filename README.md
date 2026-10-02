@@ -139,8 +139,9 @@ keychain "Always Allow" for glickr's sign-in item (there is only one).
 **What differs on desktop:**
 
 - **Choose folder** replaces the phone's gallery on both desktops: it fills the grid with that
-  folder's JPEG, PNG and WebP photos, and the order you tap them still decides the filenames.
-  Desktop uploads photos only; use the phone for videos.
+  folder's JPEG, PNG and WebP photos - and on macOS HEIC, converted with the system's `sips` -
+  and the order you pick them still decides the filenames. Desktop uploads photos only; use the
+  phone for videos.
 - **Linux** cannot play video: a video in an album opens in your default player instead of inside
   glickr, has no poster frame in the grid, and **Share** becomes **Open**.
 - In the viewer, ← and → page and Esc closes. A mouse drag pulls the album list down to refresh.

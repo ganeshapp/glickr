@@ -155,11 +155,10 @@ class GalleryNotifier extends _$GalleryNotifier {
         access: GalleryAccess.granted,
         assets: assets,
         hasMore: false,
-        // Say why, or an iPhone export (HEIC, MOV) looks like a failed pick.
+        // Say why, or an iPhone export (HEIC on Linux, MOV) looks like a
+        // failed pick.
         error:
-            assets.isEmpty
-                ? 'That folder has no JPEG, PNG or WebP photos.'
-                : null,
+            assets.isEmpty ? 'That folder has no $photoFormats photos.' : null,
       );
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -189,10 +188,7 @@ class GalleryNotifier extends _$GalleryNotifier {
     final generation = _generation;
     _loadInFlight = true;
     try {
-      final page = await bucket.getAssetListPaged(
-        page: _page,
-        size: _pageSize,
-      );
+      final page = await bucket.getAssetListPaged(page: _page, size: _pageSize);
       if (generation != _generation) return;
       _page++;
       state = state.copyWith(

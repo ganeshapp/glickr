@@ -97,6 +97,49 @@ void main() {
       expect((result.width, result.height), (100, 80));
     });
 
+    test(
+      'HEIC goes through sips on macOS, then the same encoder',
+      () async {
+        runAs(TargetPlatform.macOS);
+        final source = img.Image(width: 400, height: 300);
+        source.exif.imageIfd.orientation = 6;
+        final heic = p.join(tmp.path, 'source.heic');
+        final sips = Process.runSync('sips', [
+          ...['-s', 'format', 'heic', write(source), '--out', heic],
+        ]);
+        expect(sips.exitCode, 0, reason: '${sips.stderr}');
+
+        final target = p.join(tmp.path, 'out.jpg');
+        final out = await encodeJpeg(heic, target, maxEdge: 160, quality: 85);
+
+        final result = img.decodeJpg(out.readAsBytesSync())!;
+        expect(result.exif.isEmpty, isTrue);
+        expect((result.width, result.height), (120, 160));
+        expect(File('$target.heic.jpg').existsSync(), isFalse);
+      },
+      skip: !Platform.isMacOS,
+    );
+
+    test('HEIC elsewhere is a clear refusal, not a decoder error', () async {
+      runAs(TargetPlatform.linux);
+      File(p.join(tmp.path, 'a.heic')).writeAsStringSync('');
+      expect(
+        encodeJpeg(
+          p.join(tmp.path, 'a.heic'),
+          p.join(tmp.path, 'out.jpg'),
+          maxEdge: 160,
+          quality: 85,
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('HEIC'),
+          ),
+        ),
+      );
+    });
+
     test('rejects a file that is not an image', () async {
       final source = File(p.join(tmp.path, 'notes.jpg'))
         ..writeAsStringSync('not a photo');
@@ -112,7 +155,7 @@ void main() {
     });
   });
 
-  group('Linux folder gallery', () {
+  group('desktop folder gallery', () {
     late _FakeSelector selector;
     late ProviderContainer container;
 
@@ -162,6 +205,24 @@ void main() {
       final state = container.read(galleryNotifierProvider);
       expect(state.assets, isEmpty);
       expect(state.error, 'That folder has no JPEG, PNG or WebP photos.');
+    });
+
+    test('macOS lists HEIC too, since sips can convert it', () async {
+      runAs(TargetPlatform.macOS);
+      for (final name in ['IMG_0001.HEIC', 'b.jpg', 'c.heif']) {
+        File(p.join(tmp.path, name)).writeAsStringSync('');
+      }
+      selector.answer = tmp.path;
+
+      await container.read(galleryNotifierProvider.notifier).requestAndLoad();
+
+      final state = container.read(galleryNotifierProvider);
+      expect(state.error, isNull);
+      expect(state.assets.map((a) => p.basename(a.id)), [
+        'IMG_0001.HEIC',
+        'b.jpg',
+        'c.heif',
+      ]);
     });
 
     test('a folder that cannot be read is an error, not a crash', () async {
