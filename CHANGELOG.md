@@ -2,6 +2,13 @@
 
 ## 1.1.2 — 2026-10-02
 
+### Fixed
+
+- **A keychain that refuses no longer strands you on the splash screen.** On
+  Linux without a Secret Service keyring, or after Deny on the macOS keychain
+  prompt, the launch check now lands on the sign-in screen, and a sign-in
+  that cannot be saved says so in plain words.
+
 ### Changed
 
 - **macOS picks photos from a folder, like Linux.** 1.1.0 read the Photos

@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import '../models/github_user.dart';
+import '../platform.dart';
 import 'dio_client.dart';
 import 'github_oauth_service.dart';
 import 'secure_storage_service.dart';
@@ -70,6 +72,15 @@ class AuthService {
       }
     } on DioException catch (e) {
       return _handleDioError(e);
+    } on PlatformException {
+      // The secure storage plugin: no Secret Service on Linux, or the user
+      // denied the macOS keychain prompt.
+      return AuthFailure(
+        isLinux
+            ? 'No keyring to keep your sign-in in. Install gnome-keyring (or '
+                'KWallet) and relaunch.'
+            : "Couldn't save your sign-in to this device's secure storage.",
+      );
     } catch (e) {
       return AuthFailure('Unexpected error: ${e.toString()}');
     }
@@ -102,14 +113,16 @@ class AuthService {
   /// Unlike [validateToken], a network/connection failure here does NOT
   /// invalidate the session: the stored token is trusted and [AuthOffline]
   /// is returned so the app can proceed with cached data. Only a real 401
-  /// response (revoked/expired token) or a missing token returns
-  /// [AuthFailure].
+  /// response (revoked/expired token), a missing token or unreadable storage
+  /// (Linux without a Secret Service keyring, Deny on the macOS keychain
+  /// prompt) returns [AuthFailure] - never a throw, which would leave the
+  /// app on the splash screen.
   Future<AuthResult> checkExistingAuth() async {
-    if (!await _secureStorage.hasToken()) {
-      return const AuthFailure('No token stored');
-    }
-
     try {
+      if (!await _secureStorage.hasToken()) {
+        return const AuthFailure('No token stored');
+      }
+
       final response = await _dio.get(
         '/user',
         options: Options(
