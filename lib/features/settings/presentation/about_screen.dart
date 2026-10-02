@@ -45,7 +45,7 @@ class AboutScreen extends StatelessWidget {
                 ),
                 _Paragraph(
                   "Your photos stay in your own repo - glickr writes to it "
-                  "through GitHub's API, so your phone never has to clone "
+                  "through GitHub's API, so your device never has to clone "
                   'anything.',
                 ),
               ],
@@ -63,9 +63,9 @@ class AboutScreen extends StatelessWidget {
                   'enough steps that the album never gets posted.',
                 ),
                 _Paragraph(
-                  'glickr does all of it from the phone the photos are already '
-                  'on, and leaves the result as ordinary files you can edit '
-                  'without it.',
+                  'glickr does all of it from the device the photos are '
+                  'already on, and leaves the result as ordinary files you can '
+                  'edit without it.',
                 ),
               ],
             ),
@@ -126,9 +126,9 @@ class AboutScreen extends StatelessWidget {
                   'every other photo keeps its URL.',
                 ),
                 _Paragraph(
-                  'Caption edits are staged on the phone and committed together '
-                  'when you save, so captioning a whole album is one commit '
-                  'rather than one per photo.',
+                  'Caption edits are staged on this device and committed '
+                  'together when you save, so captioning a whole album is one '
+                  'commit rather than one per photo.',
                 ),
                 _Paragraph(
                   'None of that is a glickr format - it is just what your site '
@@ -143,7 +143,10 @@ class AboutScreen extends StatelessWidget {
               icon: Icons.warning_amber_rounded,
               title: 'Limitations',
               children: [
-                _Bullet('Android only.'),
+                _Bullet(
+                  'No iOS or Windows build. On macOS and Linux, uploads are '
+                  'photos only - use the phone for videos.',
+                ),
                 _Bullet(
                   'Album repos have to be public. Media is fetched straight '
                   "from raw.githubusercontent.com, which won't serve a private "
@@ -186,9 +189,7 @@ class AboutScreen extends StatelessWidget {
             _Section(
               icon: Icons.privacy_tip_outlined,
               title: 'Privacy',
-              actions: [
-                _SectionAction('Read privacy policy', _privacyUrl),
-              ],
+              actions: [_SectionAction('Read privacy policy', _privacyUrl)],
               children: [
                 _Paragraph(
                   'Location and camera metadata are stripped from every photo '

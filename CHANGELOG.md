@@ -41,6 +41,10 @@
   button, a right-click on an album or photo does what a long-press does,
   Enter submits the rename dialog, and the macOS share picker opens from the
   menu that asked for it.
+- **Copy that is true on a laptop.** About no longer says "Android only" or
+  "your phone"; the Wi-Fi-only switch is not offered on desktop, where no
+  transport is metered; and the README and privacy policy name where glickr
+  keeps its files on each OS and what uninstalling leaves behind.
 - **macOS picks photos from a folder, like Linux.** 1.1.0 read the Photos
   library, which on most Macs is empty, so "Add photos" showed nothing. Both
   desktops now use **Choose folder**; desktop uploads are photos only. (The

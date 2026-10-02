@@ -438,7 +438,7 @@ class _FolderBrowserScreenState extends ConsumerState<FolderBrowserScreen> {
         icon: Icons.folder_off_outlined,
         title: 'Not on GitHub yet',
         body: "There's no $_path in this branch. That's fine - it appears "
-            "with your first upload. Tap 'Use this folder' to keep it, or "
+            "with your first upload. Choose 'Use this folder' to keep it, or "
             'step back up the trail above.',
       );
     }

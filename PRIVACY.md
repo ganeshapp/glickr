@@ -1,6 +1,6 @@
 # glickr Privacy Policy
 
-_Last updated: 2026-10-02 (v1.1.0)_
+_Last updated: 2026-10-02 (v1.1.2)_
 
 glickr is an open-source app for Android, macOS and Linux that manages photo
 albums stored as folders in **your own GitHub repository**, so a Jekyll site
@@ -87,9 +87,16 @@ account.
 Device backups are disabled for the app (`android:allowBackup="false"`), so none
 of this is copied into Android or cloud backups.
 
-**On macOS and Linux** the token is kept in the login keychain (macOS) or the
-desktop's Secret Service keyring (Linux) instead, and the rest in the app's own
-data folder. The picker reads only the photos in a folder you choose.
+**On macOS and Linux** the sign-in (token, refresh token, expiry and Client ID
+together) is one item in the login keychain (macOS, service `com.glickr.glickr`)
+or in the desktop's Secret Service keyring (Linux), and the rest lives in two
+folders of your own: `~/Library/Application Support/com.glickr.glickr` and
+`~/Library/Caches/com.glickr.glickr` on macOS; `~/.local/share/com.glickr.glickr`
+and `~/.cache/com.glickr.glickr` on Linux (or under `$XDG_DATA_HOME` and
+`$XDG_CACHE_HOME` when set). The picker reads only the photos in a folder you
+choose. Uninstalling the app leaves all of that in place: delete the two folders
+and the keychain item (Keychain Access, search `com.glickr.glickr`) or keyring
+entry (Passwords and Keys, or KWalletManager) to remove every trace.
 
 ## Your GitHub token
 

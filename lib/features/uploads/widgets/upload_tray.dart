@@ -303,7 +303,7 @@ class _UploadTrayState extends ConsumerState<UploadTray> {
         title: count == 1
             ? "1 item didn't upload"
             : "$count items didn't upload",
-        detail: 'Tap to see which ones',
+        detail: 'Open to see which ones',
         actionLabel: 'Retry',
         onAction: () =>
             ref.read(uploadQueueNotifierProvider.notifier).retryAll(),

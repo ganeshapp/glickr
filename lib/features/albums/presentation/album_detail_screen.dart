@@ -753,7 +753,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
           children: [
             Tooltip(
               message:
-                  'Tap to edit. Photos stay in filename order - the same '
+                  'Edit summary and note. Photos stay in filename order - the same '
                   'order your site uses.',
               child: InkWell(
                 onTap: () => _editDescription(album),

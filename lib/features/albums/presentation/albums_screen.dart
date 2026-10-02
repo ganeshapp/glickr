@@ -410,7 +410,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
                   title: 'No albums yet',
                   body:
                       'Albums you make will show up here.\n'
-                      'Tap the button below to start your first one.',
+                      'Use the button below to start your first one.',
                   hint:
                       'Pick some photos and give them a name - glickr does the '
                       'rest.',

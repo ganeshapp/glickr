@@ -13,9 +13,9 @@ An Android, macOS and Linux app for managing photo albums that live in a GitHub 
 ---
 
 glickr is a Flutter app for the case where your photo albums are just folders in a git repository -
-the layout a static site generator can render directly. You pick photos on your phone, glickr
-compresses them, converts them, names them, and writes them to your repo through GitHub's API.
-Your phone never clones anything.
+the layout a static site generator can render directly. You pick photos on your phone or your
+computer, glickr compresses them, converts them, names them, and writes them to your repo through
+GitHub's API. Your device never clones anything.
 
 It was built for [gapp.in](https://gapp.in), whose albums live in `assets/albums` inside its Jekyll
 site repo, but it works with any repo that follows the same convention - and it will happily set one
@@ -147,6 +147,12 @@ keychain "Always Allow" for glickr's sign-in item (there is only one).
 - In the viewer, ← and → page and Esc closes. The album list has a Refresh button, and a
   right-click on an album or a photo does what a long-press does on the phone.
 
+**Uninstalling** leaves your data behind, as desktop apps do. Besides the app itself, glickr has
+two folders - `~/Library/Application Support/com.glickr.glickr` and `~/Library/Caches/com.glickr.glickr`
+on macOS, `~/.local/share/com.glickr.glickr` and `~/.cache/com.glickr.glickr` on Linux - and one
+sign-in item, `com.glickr.glickr` in the login keychain (Keychain Access) or in your keyring
+(Passwords and Keys, or KWalletManager). Delete those and nothing is left.
+
 Building locally: `flutter build macos` needs Xcode and CocoaPods; `flutter build linux` needs
 the packages the `desktop` job in [`ci.yml`](.github/workflows/ci.yml) installs.
 
@@ -189,7 +195,8 @@ and it gives a returning user a screen identical to their photo app.
 
 ## Cutting a release
 
-Bump `version:` in `pubspec.yaml`, add a `CHANGELOG.md` entry, then:
+Bump `version:` in `pubspec.yaml`, add a `CHANGELOG.md` entry, bump the version line at the top
+of `PRIVACY.md` if it changed, then:
 
 ```bash
 tool/release.sh --upload
@@ -210,7 +217,7 @@ them for an existing tag, run that workflow by hand from the Actions tab.
 
 ## Limitations
 
-- No iOS or Windows build. On Linux, uploads are photos only.
+- No iOS or Windows build. On macOS and Linux, uploads are photos only.
 - Album repos must be public, so anything you upload is readable by anyone with the link.
 - GitHub Pages publishes at most 1 GB per site. glickr shows a live meter and blocks uploads before
   you cross it. Note git keeps every version of every photo forever, so deleting an album does not

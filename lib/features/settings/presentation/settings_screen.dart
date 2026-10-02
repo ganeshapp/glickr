@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/models/app_config.dart';
+import '../../../core/platform.dart';
 import '../../../core/providers/albums_provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/config_provider.dart';
@@ -68,7 +69,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     final confirmed = await _confirm(
       title: 'Sign out?',
-      body: 'This removes your token and clears every cached album and '
+      body:
+          'This removes your token and clears every cached album and '
           'thumbnail from this device.$captionsNote',
       confirmLabel: 'Sign out',
     );
@@ -97,7 +99,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (_clearingCache) return;
     final confirmed = await _confirm(
       title: 'Clear cached media?',
-      body: 'Photos will download again the next time you open an album. '
+      body:
+          'Photos will download again the next time you open an album. '
           "Your albums on GitHub aren't touched.",
       confirmLabel: 'Clear',
     );
@@ -117,52 +120,56 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final value = await showDialog<String>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Site URL'),
-          // Scrollable because the keyboard is up the whole time this dialog
-          // is open, and in landscape that leaves it barely taller than the
-          // field itself.
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  autocorrect: false,
-                  keyboardType: TextInputType.url,
-                  style: AppTheme.mono(
-                    context,
-                    color: context.colorScheme.onSurface,
-                  ),
-                  decoration: const InputDecoration(
-                    hintText: 'https://example.com',
-                  ),
-                  onSubmitted: (text) =>
-                      Navigator.of(dialogContext).pop(text.trim()),
+        builder:
+            (dialogContext) => AlertDialog(
+              title: const Text('Site URL'),
+              // Scrollable because the keyboard is up the whole time this dialog
+              // is open, and in landscape that leaves it barely taller than the
+              // field itself.
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      autocorrect: false,
+                      keyboardType: TextInputType.url,
+                      style: AppTheme.mono(
+                        context,
+                        color: context.colorScheme.onSurface,
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'https://example.com',
+                      ),
+                      onSubmitted:
+                          (text) =>
+                              Navigator.of(dialogContext).pop(text.trim()),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      "Where 'View on web' sends you. Leave it empty and glickr "
+                      'hides that action rather than offering a link that 404s.',
+                      style: context.textTheme.bodySmall,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 14),
-                Text(
-                  "Where 'View on web' sends you. Leave it empty and glickr "
-                  'hides that action rather than offering a link that 404s.',
-                  style: context.textTheme.bodySmall,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed:
+                      () => Navigator.of(
+                        dialogContext,
+                      ).pop(controller.text.trim()),
+                  child: const Text('Save'),
                 ),
               ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(controller.text.trim()),
-              child: const Text('Save'),
-            ),
-          ],
-        ),
       );
       if (value == null) return;
       await ref
@@ -190,7 +197,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     final confirmed = await _confirm(
       title: 'Change albums folder?',
-      body: 'glickr will look for albums in the new folder. Cached albums '
+      body:
+          'glickr will look for albums in the new folder. Cached albums '
           'from the old one are cleared.',
       confirmLabel: 'Change',
     );
@@ -211,31 +219,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _pickQuality(AppConfig config) async {
     final chosen = await showModalBottomSheet<QualityPreset>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _sheetTitle('Default quality'),
-            for (final preset in QualityPreset.values)
-              RadioListTile<QualityPreset>(
-                value: preset,
-                groupValue: config.quality,
-                title: Text(preset.label),
-                subtitle: Text(_qualityDetail(preset)),
-                onChanged: (value) => Navigator.of(sheetContext).pop(value),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 10, 24, 20),
-              child: Text(
-                'This is the default. You can still change quality for a '
-                'single upload.',
-                style: context.textTheme.bodySmall,
-              ),
+      builder:
+          (sheetContext) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sheetTitle('Default quality'),
+                for (final preset in QualityPreset.values)
+                  RadioListTile<QualityPreset>(
+                    value: preset,
+                    groupValue: config.quality,
+                    title: Text(preset.label),
+                    subtitle: Text(_qualityDetail(preset)),
+                    onChanged: (value) => Navigator.of(sheetContext).pop(value),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 10, 24, 20),
+                  child: Text(
+                    'This is the default. You can still change quality for a '
+                    'single upload.',
+                    style: context.textTheme.bodySmall,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
     if (chosen == null || chosen == config.quality) return;
     await ref
@@ -246,23 +255,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _pickTheme(ThemeMode current) async {
     final chosen = await showModalBottomSheet<ThemeMode>(
       context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _sheetTitle('Theme'),
-            for (final mode in ThemeMode.values)
-              RadioListTile<ThemeMode>(
-                value: mode,
-                groupValue: current,
-                title: Text(_themeLabel(mode)),
-                onChanged: (value) => Navigator.of(sheetContext).pop(value),
-              ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
+      builder:
+          (sheetContext) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sheetTitle('Theme'),
+                for (final mode in ThemeMode.values)
+                  RadioListTile<ThemeMode>(
+                    value: mode,
+                    groupValue: current,
+                    title: Text(_themeLabel(mode)),
+                    onChanged: (value) => Navigator.of(sheetContext).pop(value),
+                  ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
     );
     if (chosen == null || chosen == current) return;
     await ref.read(themeModeNotifierProvider.notifier).setMode(chosen);
@@ -275,20 +285,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }) async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: Text(body),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Text(title),
+            content: Text(body),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(confirmLabel),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(confirmLabel),
-          ),
-        ],
-      ),
     );
     return result ?? false;
   }
@@ -346,7 +357,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _siteUrlTile(config),
               _sectionLabel('Uploads'),
               _qualityTile(config),
-              _wifiTile(config),
+              // A laptop's transports are never metered by the Wi-Fi check.
+              if (!isDesktop) _wifiTile(config),
             ],
 
             _sectionLabel('Storage'),
@@ -369,9 +381,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: const Text('About glickr'),
               subtitle: const Text('What it does, and what it cannot do.'),
               trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const AboutScreen()),
-              ),
+              onTap:
+                  () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AboutScreen(),
+                    ),
+                  ),
             ),
             _versionTile(),
           ],
@@ -430,19 +445,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           color: scheme.onSurface,
         ),
       ),
-      subtitle: user == null
-          ? const Text(
-              "glickr couldn't reach GitHub, so your account details aren't "
-              'loaded.',
-            )
-          : (user.name == null ? null : Text(user.name!)),
-      trailing: _signingOut
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : TextButton(onPressed: _signOut, child: const Text('Sign out')),
+      subtitle:
+          user == null
+              ? const Text(
+                "glickr couldn't reach GitHub, so your account details aren't "
+                'loaded.',
+              )
+              : (user.name == null ? null : Text(user.name!)),
+      trailing:
+          _signingOut
+              ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+              : TextButton(onPressed: _signOut, child: const Text('Sign out')),
     );
   }
 
@@ -464,11 +481,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             : 'Branch ${config.branch}',
       ),
       trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => const RepoSetupScreen(isOnboarding: false),
-        ),
-      ),
+      onTap:
+          () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const RepoSetupScreen(isOnboarding: false),
+            ),
+          ),
     );
   }
 
@@ -509,9 +527,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             url.isEmpty ? 'Not set' : url,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: url.isEmpty
-                ? context.textTheme.bodyMedium
-                : AppTheme.mono(context, size: 12.5),
+            style:
+                url.isEmpty
+                    ? context.textTheme.bodyMedium
+                    : AppTheme.mono(context, size: 12.5),
           ),
           const SizedBox(height: 2),
           Text("Used by 'View on web'.", style: context.textTheme.bodySmall),
@@ -539,9 +558,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         'Queued uploads wait for Wi-Fi instead of spending mobile data.',
       ),
       value: config.wifiOnlyUploads,
-      onChanged: (value) => ref
-          .read(configNotifierProvider.notifier)
-          .update((c) => c.copyWith(wifiOnlyUploads: value)),
+      onChanged:
+          (value) => ref
+              .read(configNotifierProvider.notifier)
+              .update((c) => c.copyWith(wifiOnlyUploads: value)),
     );
   }
 
@@ -561,13 +581,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           );
         },
       ),
-      trailing: _clearingCache
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : TextButton(onPressed: _clearCache, child: const Text('Clear')),
+      trailing:
+          _clearingCache
+              ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+              : TextButton(onPressed: _clearCache, child: const Text('Clear')),
     );
   }
 

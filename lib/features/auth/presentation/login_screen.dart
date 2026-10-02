@@ -651,7 +651,7 @@ class _DeviceFlowSheetState extends ConsumerState<_DeviceFlowSheet> {
         ),
         const SizedBox(height: 10),
         Text(
-          'Copied to your clipboard - tap the code to copy it again.',
+          'Copied to your clipboard - select the code to copy it again.',
           textAlign: TextAlign.center,
           style: context.textTheme.bodySmall?.copyWith(
             color: context.appColors.success,
