@@ -90,7 +90,9 @@ Future<File> encodeJpeg(
     '-s', 'format', 'jpeg', source, '--out', jpeg, //
   ]);
   if (sips.exitCode != 0) {
-    throw FormatException("Couldn't convert this HEIC photo: ${sips.stderr}");
+    // Several lines of stderr; the first is the reason.
+    final reason = '${sips.stderr}'.trim().split('\n').first;
+    throw FormatException("Couldn't convert this HEIC photo - $reason");
   }
   try {
     return await _encodeJpeg(jpeg, target, maxEdge, quality);

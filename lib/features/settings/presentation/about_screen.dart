@@ -80,8 +80,9 @@ class AboutScreen extends StatelessWidget {
                   'and point glickr at the folder your albums live in.',
                 ),
                 _Paragraph(
-                  'Then create an album and pick photos and videos in the order '
-                  'you want them. glickr resizes them, strips their EXIF, '
+                  'Then create an album and pick photos - and, on Android, '
+                  'videos - in the order you want them. glickr resizes them, '
+                  'strips their EXIF, '
                   'numbers them and commits the whole batch at once - your site '
                   'rebuilds from that commit.',
                 ),

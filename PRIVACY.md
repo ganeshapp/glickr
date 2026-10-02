@@ -117,7 +117,7 @@ entry (Passwords and Keys, or KWalletManager) to remove every trace.
 
 Logging out removes from the device your access token, refresh token and auth
 session data. The Client ID is kept (it is not a secret) so signing back in
-stays one tap. Cached albums, the upload queue and the media cache are cleared
+stays one step. Cached albums, the upload queue and the media cache are cleared
 when you switch to a different repository or clear the cache from Settings.
 
 **Logging out is local only - it does not revoke the token on GitHub.** To end

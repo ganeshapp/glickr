@@ -376,7 +376,10 @@ class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
           StatusBanner(
             icon: Icons.error_outline_rounded,
             tint: context.colorScheme.error,
-            message: "Couldn't read your gallery - ${state.error}",
+            message:
+                isDesktop
+                    ? "Couldn't read that folder - ${state.error}"
+                    : "Couldn't read your gallery - ${state.error}",
             actionLabel: 'Retry',
             onAction: _load,
           ),

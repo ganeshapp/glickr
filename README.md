@@ -73,7 +73,7 @@ never lowers, so a future upload cannot inherit a deleted photo's caption.
 
 ### 1. Sign in
 
-Tap **Sign in with GitHub**, approve the code on github.com, done. glickr ships with its own OAuth
+Choose **Sign in with GitHub**, approve the code on github.com, done. glickr ships with its own OAuth
 App client id, so there is nothing to register. A device-flow client id is public by design - there
 is no client secret, and getting a token still requires you to approve a code while signed in - so
 shipping it is safe.

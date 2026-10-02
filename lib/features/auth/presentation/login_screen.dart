@@ -503,7 +503,7 @@ class _DeviceFlowSheetState extends ConsumerState<_DeviceFlowSheet> {
         case DeviceFlowDenied(message: final message):
           _fail(
             message,
-            hint: 'Nothing was shared. Try again if you tapped the wrong '
+            hint: 'Nothing was shared. Try again if you chose the wrong '
                 'button on GitHub.',
           );
         case DeviceFlowDisabled(message: final message):

@@ -181,8 +181,10 @@ class MediaPipelineService {
     // come out sideways.
     final source = await assetSourceFile(asset);
     if (source == null || !await source.exists()) {
-      throw const MediaProcessingException(
-        "Couldn't read this photo from your gallery",
+      throw MediaProcessingException(
+        isDesktop
+            ? "Couldn't read this photo - it may have been moved or deleted"
+            : "Couldn't read this photo from your gallery",
       );
     }
     final sourceBytes = await source.length();
@@ -457,6 +459,9 @@ class MediaPipelineService {
     if (mime.contains('avif')) {
       return 'AVIF photos need Android 12 or newer';
     }
+    // encodeJpeg's own refusals - HEIC off macOS, sips failing, not an
+    // image - are written for the user: show them as they are.
+    if (error is FormatException) return error.message;
     if (kDebugMode && error != null) {
       return "Couldn't convert this photo ($error)";
     }
