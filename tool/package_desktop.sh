@@ -52,10 +52,14 @@ EOF
   cat > "$ROOT/DEBIAN/control" <<EOF
 Package: $APP
 Version: $VERSION
+Section: graphics
+Priority: optional
 Architecture: amd64
 Maintainer: ganeshapp <ganeshapp@users.noreply.github.com>
 Depends: $DEPS
+Recommends: gnome-keyring
 Description: $SUMMARY
+ Staying signed in needs a Secret Service keyring (GNOME Keyring or KWallet).
 EOF
   dpkg-deb --build --root-owner-group "$ROOT" "$OUT/$APP-$VERSION-linux-x64.deb"
   ;;
