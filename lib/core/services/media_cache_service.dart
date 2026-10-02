@@ -1,9 +1,15 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+// flutter_cache_manager's own File type comes from `file`, not dart:io, so a
+// FileSystem for it has to speak the same one. It is a transitive dependency
+// rather than a declared one, which is all this lint is objecting to.
+// ignore: depend_on_referenced_packages
+import 'package:file/file.dart' as fs;
+// ignore: depend_on_referenced_packages
+import 'package:file/local.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:video_compress/video_compress.dart';
 
 import '../models/album.dart';
@@ -64,9 +70,11 @@ class MediaCacheService {
                // sqflite on Android, as by default. Not on macOS, where it
                // looks for an old copy in ~/Documents on every launch - and
                // that raises a folder-access prompt.
-               repo: isDesktop
-                   ? JsonCacheInfoRepository(databaseName: _cacheKey)
-                   : CacheObjectProvider(databaseName: _cacheKey),
+               repo:
+                   isDesktop
+                       ? _CacheDirIndex()
+                       : CacheObjectProvider(databaseName: _cacheKey),
+               fileSystem: _CacheDirFileSystem(),
                fileService: _UrlExtensionFileService(),
              ),
            ),
@@ -205,11 +213,13 @@ class MediaCacheService {
   /// Android may reclaim the directory underneath us at any moment.
   Future<int> cacheSizeBytes() async {
     try {
-      final root = await getTemporaryDirectory();
-      final dir = Directory(p.join(root.path, _cacheKey));
+      final dir = await _filesDir();
       if (!await dir.exists()) return 0;
       var total = 0;
-      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      await for (final entity in dir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is! File) continue;
         try {
           total += await entity.length();
@@ -221,6 +231,41 @@ class MediaCacheService {
     } catch (_) {
       return 0;
     }
+  }
+
+  /// Where the cached bytes live: the app's cache dir, so Settings measures
+  /// the same place the files are written.
+  static Future<Directory> _filesDir() async =>
+      Directory(p.join((await appCacheDir()).path, _cacheKey));
+}
+
+/// The cached files, rooted in [appCacheDir]. flutter_cache_manager's own
+/// IOFileSystem roots them in the temp dir - /tmp on Linux, shared between
+/// users and emptied at boot. Same shape, different root.
+class _CacheDirFileSystem implements FileSystem {
+  final Future<fs.Directory> _dir = MediaCacheService._filesDir().then(
+    (dir) => const LocalFileSystem().directory(dir.path),
+  );
+
+  @override
+  Future<fs.File> createFile(String name) async {
+    final dir = await _dir;
+    // Android may reclaim the directory under storage pressure.
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir.childFile(name);
+  }
+}
+
+/// The JSON index, next to the files it describes instead of in Application
+/// Support, so the cache is one directory: one thing to clear, one path to
+/// name in the privacy policy.
+class _CacheDirIndex extends JsonCacheInfoRepository {
+  _CacheDirIndex() : super(databaseName: MediaCacheService._cacheKey);
+
+  @override
+  Future<bool> open() async {
+    directory ??= await appCacheDir();
+    return super.open();
   }
 }
 

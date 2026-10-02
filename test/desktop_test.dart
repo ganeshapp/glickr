@@ -13,6 +13,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:glickr/core/platform.dart';
 import 'package:glickr/core/providers/gallery_provider.dart';
 import 'package:glickr/core/services/desktop_media.dart';
+import 'package:glickr/core/services/media_cache_service.dart';
 import 'package:glickr/features/picker/presentation/media_picker_screen.dart';
 
 /// The GTK folder dialog, answered by the test.
@@ -228,41 +229,110 @@ void main() {
     });
   });
 
-  group('appDataDir', () {
+  group('app directories', () {
     const channel = MethodChannel('plugins.flutter.io/path_provider');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
-    Future<String> askedFor(TargetPlatform platform) async {
+    /// The path_provider method [platform] answers [dir] with, or null.
+    Future<String?> askedFor(
+      TargetPlatform platform,
+      Future<Directory> Function() dir,
+    ) async {
       runAs(platform);
       String? method;
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            method = call.method;
-            return tmp.path;
-          });
-      addTearDown(
-        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(channel, null),
-      );
-      await appDataDir();
-      return method!;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        method = call.method;
+        return tmp.path;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      await dir();
+      return method;
     }
 
-    test('Android keeps the documents directory', () async {
+    test('Android keeps the documents directory and its own cache', () async {
       expect(
-        await askedFor(TargetPlatform.android),
+        await askedFor(TargetPlatform.android, appDataDir),
         'getApplicationDocumentsDirectory',
+      );
+      expect(
+        await askedFor(TargetPlatform.android, appCacheDir),
+        'getTemporaryDirectory',
       );
     });
 
-    test('desktop uses application support, not ~/Documents', () async {
+    test('macOS uses Application Support and Caches', () async {
       expect(
-        await askedFor(TargetPlatform.linux),
+        await askedFor(TargetPlatform.macOS, appDataDir),
         'getApplicationSupportDirectory',
       );
       expect(
-        await askedFor(TargetPlatform.macOS),
-        'getApplicationSupportDirectory',
+        await askedFor(TargetPlatform.macOS, appCacheDir),
+        'getApplicationCacheDirectory',
       );
+    });
+
+    group('Linux', () {
+      setUp(() {
+        debugEnvironmentOverride = {'HOME': tmp.path};
+        addTearDown(() => debugEnvironmentOverride = null);
+      });
+
+      test(
+        'XDG defaults, named after the app id, private to the user',
+        () async {
+          // Not path_provider: its Linux answer depends on whether libgio can
+          // be dlopen'd, so it moves when libglib2.0-dev is installed.
+          expect(await askedFor(TargetPlatform.linux, appDataDir), isNull);
+          expect(await askedFor(TargetPlatform.linux, appCacheDir), isNull);
+
+          final data = await appDataDir();
+          final cache = await appCacheDir();
+          expect(data.path, p.join(tmp.path, '.local/share/com.glickr.glickr'));
+          expect(cache.path, p.join(tmp.path, '.cache/com.glickr.glickr'));
+          expect(data.statSync().modeString(), 'rwx------');
+          expect(cache.statSync().modeString(), 'rwx------');
+        },
+      );
+
+      test(
+        'an absolute XDG variable wins; a relative one is ignored',
+        () async {
+          runAs(TargetPlatform.linux);
+          debugEnvironmentOverride = {
+            'HOME': tmp.path,
+            'XDG_DATA_HOME': p.join(tmp.path, 'data'),
+            'XDG_CACHE_HOME': 'relative',
+          };
+
+          expect(
+            (await appDataDir()).path,
+            p.join(tmp.path, 'data', 'com.glickr.glickr'),
+          );
+          expect(
+            (await appCacheDir()).path,
+            p.join(tmp.path, '.cache', 'com.glickr.glickr'),
+          );
+        },
+      );
+
+      test('the media cache is one directory: files, index and the number '
+          'Settings shows', () async {
+        runAs(TargetPlatform.linux);
+        final cache = MediaCacheService();
+        await cache.seed(
+          blobSha: 'abc123',
+          bytes: Uint8List.fromList(List.filled(10, 1)),
+          fileExtension: '.jpg',
+        );
+        await cache.manager.dispose(); // flushes the index
+
+        final root = p.join(tmp.path, '.cache', 'com.glickr.glickr');
+        final files = Directory(p.join(root, 'glickrMedia')).listSync();
+        expect(files.whereType<File>().single.lengthSync(), 10);
+        expect(File(p.join(root, 'glickrMedia.json')).existsSync(), isTrue);
+        expect(await cache.cacheSizeBytes(), 10);
+      });
     });
   });
 }
