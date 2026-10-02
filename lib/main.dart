@@ -9,6 +9,7 @@ import 'core/models/app_config.dart';
 import 'core/models/media_item.dart';
 import 'core/platform.dart';
 import 'core/providers/theme_provider.dart';
+import 'core/services/secure_storage_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/auth_wrapper.dart';
 import 'features/uploads/widgets/upload_tray.dart';
@@ -36,6 +37,14 @@ Future<void> main() async {
   // Caption edits staged but not yet committed, so closing the app with
   // unsaved captions keeps them.
   await Hive.openBox<Map>('pending_captions');
+
+  // 1.1.0 left its sign-in under the keychain service name every
+  // flutter_secure_storage app shares. Remove those items, once.
+  final settings = Hive.box<String>('app_settings');
+  if (isMacOS && settings.get('shared_keychain_cleaned') == null) {
+    await SecureStorageService.deleteSharedServiceItems();
+    await settings.put('shared_keychain_cleaned', 'yes');
+  }
 
   runApp(const ProviderScope(child: GlickrApp()));
 }

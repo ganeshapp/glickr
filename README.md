@@ -133,8 +133,8 @@ it. Close that, then open **System Settings → Privacy & Security** (on macOS 1
 xattr -dr com.apple.quarantine /Applications/glickr.app
 ```
 
-macOS forgets its approvals with each update: expect that step, the Photos prompt and a keychain
-"Always Allow" for each stored sign-in item again.
+macOS re-checks an unnotarized app on every update: expect the Open Anyway step again, and one
+keychain "Always Allow" for glickr's sign-in item (there is only one).
 
 **What differs on desktop:**
 

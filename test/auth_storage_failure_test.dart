@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage_platform_interface/flutter_secure_storage_platform_interface.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:glickr/core/providers/auth_provider.dart';
@@ -11,51 +11,30 @@ import 'package:glickr/core/services/secure_storage_service.dart';
 /// A keychain that refuses: Linux with no Secret Service daemon, or Deny on
 /// the macOS keychain prompt. flutter_secure_storage reports both as a
 /// PlatformException.
-class _RefusingStorage extends FlutterSecureStoragePlatform {
-  Never _refuse() => throw PlatformException(code: 'Libsecret error');
+class _RefusingStorage extends FlutterSecureStorage {
+  const _RefusingStorage();
 
   @override
   Future<String?> read({
     required String key,
-    required Map<String, String> options,
-  }) async => _refuse();
-  @override
-  Future<void> write({
-    required String key,
-    required String value,
-    required Map<String, String> options,
-  }) async => _refuse();
-  @override
-  Future<void> delete({
-    required String key,
-    required Map<String, String> options,
-  }) async => _refuse();
-  @override
-  Future<bool> containsKey({
-    required String key,
-    required Map<String, String> options,
-  }) async => _refuse();
-  @override
-  Future<Map<String, String>> readAll({
-    required Map<String, String> options,
-  }) async => _refuse();
-  @override
-  Future<void> deleteAll({required Map<String, String> options}) async =>
-      _refuse();
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) => throw PlatformException(code: 'Libsecret error');
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() => FlutterSecureStoragePlatform.instance = _RefusingStorage());
+  final refusing = SecureStorageService(storage: const _RefusingStorage());
 
   test(
     'an unreadable keychain at launch is "not signed in", not a throw',
     () async {
-      final auth = AuthService(
-        secureStorage: SecureStorageService(),
-        dio: Dio(),
-      );
+      final auth = AuthService(secureStorage: refusing, dio: Dio());
       expect(await auth.checkExistingAuth(), isA<AuthFailure>());
     },
   );
@@ -63,7 +42,9 @@ void main() {
   test(
     'the launch check lands on the sign-in screen, not the splash',
     () async {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [secureStorageProvider.overrideWithValue(refusing)],
+      );
       addTearDown(container.dispose);
       container.listen(authNotifierProvider, (_, _) {});
       expect(container.read(authNotifierProvider), isA<AuthLoading>());

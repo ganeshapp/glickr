@@ -8,7 +8,8 @@ import 'package:path_provider/path_provider.dart';
 /// testing the phone path on a Linux CI runner; a test opts in with
 /// `debugDefaultTargetPlatformOverride`; release builds constant-fold it.
 bool get isLinux => defaultTargetPlatform == TargetPlatform.linux;
-bool get isDesktop => isLinux || defaultTargetPlatform == TargetPlatform.macOS;
+bool get isMacOS => defaultTargetPlatform == TargetPlatform.macOS;
+bool get isDesktop => isLinux || isMacOS;
 
 /// Where the app keeps its own files. Android keeps the documents dir existing
 /// installs already use; on desktop that dir is the user's ~/Documents.

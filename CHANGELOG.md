@@ -16,6 +16,13 @@
 
 ### Changed
 
+- **One keychain item on macOS, and the old shared one is cleaned up.** The
+  sign-in is now kept as a single item under `com.glickr.glickr`, so an update
+  asks you to allow keychain access once rather than once per field; a session
+  saved by 1.1.1 is carried over. The entries 1.1.0 left under the name every
+  flutter_secure_storage app shares are deleted on first launch - deleted
+  only, never read, since that slot can belong to another app. If you were
+  signed in with 1.1.0, sign in again once.
 - **macOS picks photos from a folder, like Linux.** 1.1.0 read the Photos
   library, which on most Macs is empty, so "Add photos" showed nothing. Both
   desktops now use **Choose folder**; desktop uploads are photos only. (The
