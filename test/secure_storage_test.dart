@@ -5,6 +5,25 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:glickr/core/services/secure_storage_service.dart';
 
+/// Counts reads, to show the 1.1.x probe runs once.
+class _CountingStorage extends FlutterSecureStorage {
+  int reads = 0;
+
+  @override
+  Future<String?> read({
+    required String key,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) {
+    reads++;
+    return super.read(key: key);
+  }
+}
+
 /// The session is one secure-storage item, so a macOS update costs one
 /// keychain prompt rather than five, and the 1.1.x item-per-field layout is
 /// folded into it on first read.
@@ -80,6 +99,16 @@ void main() {
     expect(await storage.hasToken(), isFalse);
     expect(await storage.getClientId(), isNull);
     expect(items, isEmpty);
+  });
+
+  test('the 1.1.x items are looked for once, not on every read', () async {
+    final counting = _CountingStorage();
+    final storage = SecureStorageService(storage: counting);
+
+    await storage.hasToken();
+    expect(counting.reads, 6); // the session item, then the five old keys
+    await storage.getClientId();
+    expect(counting.reads, 7);
   });
 
   test('logout clears everything but the client id', () async {

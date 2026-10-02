@@ -20,10 +20,11 @@
 - **One keychain item on macOS, and the old shared one is cleaned up.** The
   sign-in is now kept as a single item under `com.glickr.glickr`, so an update
   asks you to allow keychain access once rather than once per field; a session
-  saved by 1.1.1 is carried over. The entries 1.1.0 left under the name every
-  flutter_secure_storage app shares are deleted on first launch - deleted
-  only, never read, since that slot can belong to another app. If you were
-  signed in with 1.1.0, sign in again once.
+  saved by 1.1.1 is carried over (that one update asks once per saved field
+  one last time - the migration into the single item). The entries 1.1.0 left
+  under the name every flutter_secure_storage app shares are deleted on first
+  launch - deleted only, never read, since that slot can belong to another
+  app. If you were signed in with 1.1.0, sign in again once.
 - **Desktop data and cache have fixed, private, per-user homes.** On Linux
   the app's files live in `~/.local/share/com.glickr.glickr` and the media
   cache in `~/.cache/com.glickr.glickr` (or under `$XDG_DATA_HOME` /

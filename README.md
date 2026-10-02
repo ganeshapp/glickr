@@ -134,7 +134,9 @@ xattr -dr com.apple.quarantine /Applications/glickr.app
 ```
 
 macOS re-checks an unnotarized app on every update: expect the Open Anyway step again, and one
-keychain "Always Allow" for glickr's sign-in item (there is only one).
+keychain "Always Allow" for glickr's sign-in item (there is only one). Updating from 1.1.1 asks once
+per saved field one last time - that is the migration into the single item; every update after that
+asks once.
 
 **What differs on desktop:**
 

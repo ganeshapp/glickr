@@ -52,6 +52,10 @@ class SecureStorageService {
 
   final FlutterSecureStorage _storage;
 
+  /// Whether [_migrate] has looked for 1.1.x items yet: once per instance, so
+  /// a fresh install is not five keyring round-trips on every read.
+  bool _migrated = false;
+
   SecureStorageService({FlutterSecureStorage? storage})
     : _storage =
           storage ??
@@ -67,7 +71,7 @@ class SecureStorageService {
   Future<String?> getToken() async => (await _read())[_token];
 
   /// Delete all session data (logout). The OAuth client id survives so
-  /// signing back in stays one tap.
+  /// signing back in stays one step.
   Future<void> deleteToken() =>
       _update((s) => s.removeWhere((field, _) => field != _clientId));
 
@@ -136,8 +140,11 @@ class SecureStorageService {
 
   Future<Map<String, String>> _read() async {
     final raw = await _storage.read(key: _sessionKey);
-    if (raw == null) return _migrate();
-    return Map<String, String>.from(jsonDecode(raw) as Map);
+    if (raw != null) return Map<String, String>.from(jsonDecode(raw) as Map);
+    if (_migrated) return {};
+    final session = await _migrate();
+    _migrated = true;
+    return session;
   }
 
   Future<void> _update(
@@ -152,7 +159,9 @@ class SecureStorageService {
     }
   }
 
-  /// Fold the one-item-per-field layout of 1.1.x into the session item.
+  /// Fold the one-item-per-field layout of 1.1.x into the session item. On
+  /// macOS each item 1.1.1 saved is a keychain prompt of its own, this once;
+  /// an absent one is silent.
   Future<Map<String, String>> _migrate() async {
     final session = <String, String>{};
     for (final field in _fields) {
