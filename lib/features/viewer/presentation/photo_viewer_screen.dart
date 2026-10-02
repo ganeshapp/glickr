@@ -125,6 +125,9 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
   bool _chromeVisible = true;
   bool _zoomed = false;
   bool _busy = false;
+
+  /// Anchors the macOS share popover to the menu that opened it.
+  final _menuKey = GlobalKey();
   bool _exiting = false;
 
   @override
@@ -448,10 +451,15 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
       // the file arrives as a photo, and it works with no connection at all.
       // The cached copy is named after its blob sha on disk, so the real
       // filename has to be supplied separately.
+      // The macOS share picker is a popover; without an origin it opens from
+      // the window's corner rather than the menu that asked for it.
+      final menu = _menuKey.currentContext?.findRenderObject() as RenderBox?;
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path, mimeType: _mimeTypeFor(item))],
           fileNameOverrides: [item.name],
+          sharePositionOrigin:
+              menu == null ? null : menu.localToGlobal(Offset.zero) & menu.size,
         ),
       );
     } catch (_) {
@@ -989,6 +997,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
                 ),
                 if (unsaved > 0) _unsavedPill(album, unsaved),
                 PopupMenuButton<_ViewerAction>(
+                  key: _menuKey,
                   enabled: !_busy,
                   tooltip: 'More',
                   icon: const Icon(
@@ -1096,9 +1105,10 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen>
                     '$count unsaved',
                     // "3 unsaved" is only meaningful next to the photo it is
                     // drawn on; spoken aloud it needs its noun.
-                    semanticsLabel: count == 1
-                        ? '1 caption not saved'
-                        : '$count captions not saved',
+                    semanticsLabel:
+                        count == 1
+                            ? '1 caption not saved'
+                            : '$count captions not saved',
                     style: AppTheme.mono(
                       context,
                       size: 12,

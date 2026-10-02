@@ -71,6 +71,8 @@ class MediaTile extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
           onLongPress: onLongPress,
+          // A mouse's long-press.
+          onSecondaryTap: onLongPress,
           child: AnimatedContainer(
             duration: duration,
             curve: Curves.easeOut,

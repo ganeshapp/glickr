@@ -64,12 +64,15 @@ class _AlbumCardState extends State<AlbumCard> {
             margin: EdgeInsets.zero,
             child: InkWell(
               onTap: widget.onTap,
-              onLongPress: widget.onLongPress == null
-                  ? null
-                  : () {
-                      HapticFeedback.mediumImpact();
-                      widget.onLongPress!();
-                    },
+              // A mouse's long-press.
+              onSecondaryTap: widget.onLongPress,
+              onLongPress:
+                  widget.onLongPress == null
+                      ? null
+                      : () {
+                        HapticFeedback.mediumImpact();
+                        widget.onLongPress!();
+                      },
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [

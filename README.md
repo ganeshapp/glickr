@@ -144,7 +144,8 @@ keychain "Always Allow" for glickr's sign-in item (there is only one).
   phone for videos.
 - **Linux** cannot play video: a video in an album opens in your default player instead of inside
   glickr, has no poster frame in the grid, and **Share** becomes **Open**.
-- In the viewer, ← and → page and Esc closes. A mouse drag pulls the album list down to refresh.
+- In the viewer, ← and → page and Esc closes. The album list has a Refresh button, and a
+  right-click on an album or a photo does what a long-press does on the phone.
 
 Building locally: `flutter build macos` needs Xcode and CocoaPods; `flutter build linux` needs
 the packages the `desktop` job in [`ci.yml`](.github/workflows/ci.yml) installs.

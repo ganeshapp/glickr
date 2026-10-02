@@ -37,6 +37,10 @@
 - **macOS reads HEIC.** A folder exported from Photos is mostly HEIC, which
   the pure-Dart encoder cannot decode; on a Mac each one now goes through the
   system's `sips` first. Linux still lists JPEG, PNG and WebP only and says so.
+- **Mouse and keyboard equivalents on desktop.** The album list has a Refresh
+  button, a right-click on an album or photo does what a long-press does,
+  Enter submits the rename dialog, and the macOS share picker opens from the
+  menu that asked for it.
 - **macOS picks photos from a folder, like Linux.** 1.1.0 read the Photos
   library, which on most Macs is empty, so "Add photos" showed nothing. Both
   desktops now use **Choose folder**; desktop uploads are photos only. (The

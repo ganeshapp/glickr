@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -68,27 +67,19 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
         onRefresh: _refresh,
         color: scheme.primary,
         backgroundColor: scheme.surfaceContainerHigh,
-        // Desktop: the only refresh control, so a mouse must pull it like a
-        // finger. Only here - app-wide, a mouse drag in a long text field
-        // would scroll it instead of selecting.
-        child: ScrollConfiguration(
-          behavior: ScrollConfiguration.of(context).copyWith(
-            dragDevices: isDesktop ? PointerDeviceKind.values.toSet() : null,
+        child: CustomScrollView(
+          // AlwaysScrollable under the bouncing physics so pull-to-refresh
+          // still works on the empty and error states, where the content
+          // does not fill the viewport and a plain scroll view would refuse
+          // the drag outright.
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
           ),
-          child: CustomScrollView(
-            // AlwaysScrollable under the bouncing physics so pull-to-refresh
-            // still works on the empty and error states, where the content
-            // does not fill the viewport and a plain scroll view would refuse
-            // the drag outright.
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
-            slivers: [
-              _appBar(),
-              if (status != null) SliverToBoxAdapter(child: status),
-              _content(state, albums),
-            ],
-          ),
+          slivers: [
+            _appBar(),
+            if (status != null) SliverToBoxAdapter(child: status),
+            _content(state, albums),
+          ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -98,11 +89,12 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
         onPressed: blocked ? null : _openPicker,
         backgroundColor: blocked ? scheme.surfaceContainerHighest : null,
         foregroundColor: blocked ? scheme.onSurfaceVariant : null,
-        tooltip: blocked
-            ? 'Uploads are paused - your repo is over '
-                  '${formatBytes(MediaPipelineService.repoBlockBytes, decimals: 0)}. '
-                  'Free some space, or move to a host without a size limit.'
-            : 'Add photos',
+        tooltip:
+            blocked
+                ? 'Uploads are paused - your repo is over '
+                    '${formatBytes(MediaPipelineService.repoBlockBytes, decimals: 0)}. '
+                    'Free some space, or move to a host without a size limit.'
+                : 'Add photos',
         icon: const Icon(Icons.add_photo_alternate_rounded),
         label: const Text('Add photos'),
       ),
@@ -150,6 +142,13 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
       ),
       title: _searching ? _searchField() : _repoTitle(config),
       actions: [
+        // A mouse has no pull-to-refresh.
+        if (isDesktop && !_searching)
+          IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _refresh,
+          ),
         IconButton(
           tooltip: _searching ? 'Close search' : 'Search albums',
           icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded),
@@ -160,23 +159,28 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
             tooltip: 'More',
             icon: const Icon(Icons.more_vert_rounded),
             onSelected: _onMenuAction,
-            itemBuilder: (context) => <PopupMenuEntry<_MenuAction>>[
-              _menuItem(_MenuAction.sort, Icons.sort_rounded, 'Sort'),
-              // Hidden rather than shown-and-broken when no site URL is set:
-              // the link would 404 on a repo with no published site.
-              if (hasSite)
-                _menuItem(
-                  _MenuAction.openSite,
-                  Icons.language_rounded,
-                  'Open site',
-                ),
-              _menuItem(
-                _MenuAction.changeRepo,
-                Icons.swap_horiz_rounded,
-                'Change repository',
-              ),
-              _menuItem(_MenuAction.about, Icons.info_outline_rounded, 'About'),
-            ],
+            itemBuilder:
+                (context) => <PopupMenuEntry<_MenuAction>>[
+                  _menuItem(_MenuAction.sort, Icons.sort_rounded, 'Sort'),
+                  // Hidden rather than shown-and-broken when no site URL is set:
+                  // the link would 404 on a repo with no published site.
+                  if (hasSite)
+                    _menuItem(
+                      _MenuAction.openSite,
+                      Icons.language_rounded,
+                      'Open site',
+                    ),
+                  _menuItem(
+                    _MenuAction.changeRepo,
+                    Icons.swap_horiz_rounded,
+                    'Change repository',
+                  ),
+                  _menuItem(
+                    _MenuAction.about,
+                    Icons.info_outline_rounded,
+                    'About',
+                  ),
+                ],
           ),
       ],
     );
@@ -245,17 +249,19 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
           minWidth: 36,
           minHeight: 36,
         ),
-        suffixIcon: _query.isEmpty
-            ? null
-            : IconButton(
-                tooltip: 'Clear',
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.cancel_rounded, size: 18),
-                onPressed: () => setState(() {
-                  _searchController.clear();
-                  _query = '';
-                }),
-              ),
+        suffixIcon:
+            _query.isEmpty
+                ? null
+                : IconButton(
+                  tooltip: 'Clear',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.cancel_rounded, size: 18),
+                  onPressed:
+                      () => setState(() {
+                        _searchController.clear();
+                        _query = '';
+                      }),
+                ),
       ),
     );
   }
@@ -291,8 +297,9 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
         message: 'Sync failed - showing cached data',
         tint: scheme.error,
         actionLabel: 'Retry',
-        onAction: () =>
-            ref.read(albumsNotifierProvider.notifier).refresh(force: true),
+        onAction:
+            () =>
+                ref.read(albumsNotifierProvider.notifier).refresh(force: true),
       );
     }
 
@@ -396,22 +403,23 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
     if (albums.isEmpty) {
       return SliverFillRemaining(
         hasScrollBody: false,
-        child: _query.trim().isEmpty
-            ? const EmptyState(
-                icon: Icons.photo_library_outlined,
-                title: 'No albums yet',
-                body:
-                    'Albums you make will show up here.\n'
-                    'Tap the button below to start your first one.',
-                hint:
-                    'Pick some photos and give them a name - glickr does the '
-                    'rest.',
-              )
-            : const EmptyState(
-                icon: Icons.search_off_rounded,
-                title: 'No albums match',
-                body: 'Try a different search',
-              ),
+        child:
+            _query.trim().isEmpty
+                ? const EmptyState(
+                  icon: Icons.photo_library_outlined,
+                  title: 'No albums yet',
+                  body:
+                      'Albums you make will show up here.\n'
+                      'Tap the button below to start your first one.',
+                  hint:
+                      'Pick some photos and give them a name - glickr does the '
+                      'rest.',
+                )
+                : const EmptyState(
+                  icon: Icons.search_off_rounded,
+                  title: 'No albums match',
+                  body: 'Try a different search',
+                ),
       );
     }
 
@@ -500,9 +508,9 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
       case _MenuAction.about:
         // The real About screen, shared with Settings. It describes glickr
         // itself - never the album repo that happens to be selected.
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const AboutScreen()),
-        );
+        await Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => const AboutScreen()));
     }
   }
 
@@ -510,47 +518,48 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Consumer(
-          builder: (context, ref, _) {
-            final current = ref.watch(albumSortNotifierProvider);
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
-                  child: Text(
-                    'Sort albums',
-                    style: context.textTheme.titleMedium,
-                  ),
-                ),
-                for (final sort in AlbumSort.values)
-                  RadioListTile<AlbumSort>(
-                    value: sort,
-                    groupValue: current,
-                    title: Text(sort.label),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      ref
-                          .read(albumSortNotifierProvider.notifier)
-                          .setSort(value);
-                      Navigator.of(sheetContext).pop();
-                    },
-                  ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
-                  child: Text(
-                    "Name A-Z is the default because it's the order your "
-                    'website shows albums in.',
-                    style: context.textTheme.bodySmall,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
+      builder:
+          (sheetContext) => SafeArea(
+            child: Consumer(
+              builder: (context, ref, _) {
+                final current = ref.watch(albumSortNotifierProvider);
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+                      child: Text(
+                        'Sort albums',
+                        style: context.textTheme.titleMedium,
+                      ),
+                    ),
+                    for (final sort in AlbumSort.values)
+                      RadioListTile<AlbumSort>(
+                        value: sort,
+                        groupValue: current,
+                        title: Text(sort.label),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          ref
+                              .read(albumSortNotifierProvider.notifier)
+                              .setSort(value);
+                          Navigator.of(sheetContext).pop();
+                        },
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
+                      child: Text(
+                        "Name A-Z is the default because it's the order your "
+                        'website shows albums in.',
+                        style: context.textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
     );
   }
 
@@ -567,47 +576,59 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
     final action = await showModalBottomSheet<_AlbumAction>(
       context: context,
       showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(album.title, style: context.textTheme.titleMedium),
-              subtitle: Text(
-                album.folder,
-                style: AppTheme.mono(context, size: 11),
-              ),
+      builder:
+          (sheetContext) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: Text(
+                    album.title,
+                    style: context.textTheme.titleMedium,
+                  ),
+                  subtitle: Text(
+                    album.folder,
+                    style: AppTheme.mono(context, size: 11),
+                  ),
+                ),
+                const Divider(height: 1),
+                if (webUrl.isNotEmpty)
+                  ListTile(
+                    leading: const Icon(Icons.open_in_new_rounded),
+                    title: const Text('Open on web'),
+                    onTap:
+                        () => Navigator.of(
+                          sheetContext,
+                        ).pop(_AlbumAction.openWeb),
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.drive_file_rename_outline_rounded),
+                  title: const Text('Rename album'),
+                  onTap:
+                      () => Navigator.of(sheetContext).pop(_AlbumAction.rename),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.notes_rounded),
+                  title: const Text('Edit description'),
+                  onTap:
+                      () =>
+                          Navigator.of(sheetContext).pop(_AlbumAction.describe),
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.delete_outline_rounded,
+                    color: scheme.error,
+                  ),
+                  title: Text(
+                    'Delete album',
+                    style: TextStyle(color: scheme.error),
+                  ),
+                  onTap:
+                      () => Navigator.of(sheetContext).pop(_AlbumAction.delete),
+                ),
+              ],
             ),
-            const Divider(height: 1),
-            if (webUrl.isNotEmpty)
-              ListTile(
-                leading: const Icon(Icons.open_in_new_rounded),
-                title: const Text('Open on web'),
-                onTap: () =>
-                    Navigator.of(sheetContext).pop(_AlbumAction.openWeb),
-              ),
-            ListTile(
-              leading: const Icon(Icons.drive_file_rename_outline_rounded),
-              title: const Text('Rename album'),
-              onTap: () => Navigator.of(sheetContext).pop(_AlbumAction.rename),
-            ),
-            ListTile(
-              leading: const Icon(Icons.notes_rounded),
-              title: const Text('Edit description'),
-              onTap: () =>
-                  Navigator.of(sheetContext).pop(_AlbumAction.describe),
-            ),
-            ListTile(
-              leading: Icon(Icons.delete_outline_rounded, color: scheme.error),
-              title: Text(
-                'Delete album',
-                style: TextStyle(color: scheme.error),
-              ),
-              onTap: () => Navigator.of(sheetContext).pop(_AlbumAction.delete),
-            ),
-          ],
-        ),
-      ),
+          ),
     );
 
     if (action == null || !mounted) return;
@@ -656,55 +677,65 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
     try {
       typed = await showDialog<String>(
         context: context,
-        builder: (dialogContext) => StatefulBuilder(
-          builder: (context, setDialogState) {
-            final folder = folderNameFor(controller.text);
-            return AlertDialog(
-              title: const Text('Rename album'),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: controller,
-                      autofocus: true,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(
-                        labelText: 'Album name',
-                      ),
-                      onChanged: (_) => setDialogState(() {}),
+        builder:
+            (dialogContext) => StatefulBuilder(
+              builder: (context, setDialogState) {
+                final folder = folderNameFor(controller.text);
+                return AlertDialog(
+                  title: const Text('Rename album'),
+                  content: SizedBox(
+                    width: double.maxFinite,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: controller,
+                          autofocus: true,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.done,
+                          decoration: const InputDecoration(
+                            labelText: 'Album name',
+                          ),
+                          onChanged: (_) => setDialogState(() {}),
+                          onSubmitted: (_) {
+                            if (folder.isNotEmpty) {
+                              Navigator.of(dialogContext).pop(controller.text);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        // The folder is derived, never typed, and it is what every
+                        // URL is built from - so it is shown live rather than
+                        // discovered after the fact.
+                        Text(
+                          folder.isEmpty
+                              ? 'Album names can use letters, numbers, spaces, '
+                                  '- and _'
+                              : 'Folder: $folder',
+                          style: AppTheme.mono(context, size: 11),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    // The folder is derived, never typed, and it is what every
-                    // URL is built from - so it is shown live rather than
-                    // discovered after the fact.
-                    Text(
-                      folder.isEmpty
-                          ? 'Album names can use letters, numbers, spaces, '
-                                '- and _'
-                          : 'Folder: $folder',
-                      style: AppTheme.mono(context, size: 11),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed:
+                          folder.isEmpty
+                              ? null
+                              : () => Navigator.of(
+                                dialogContext,
+                              ).pop(controller.text),
+                      child: const Text('Next'),
                     ),
                   ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: folder.isEmpty
-                      ? null
-                      : () => Navigator.of(dialogContext).pop(controller.text),
-                  child: const Text('Next'),
-                ),
-              ],
-            );
-          },
-        ),
+                );
+              },
+            ),
       );
     } finally {
       controller.dispose();
@@ -767,23 +798,25 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
     final scheme = context.colorScheme;
     final result = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: Text(body),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Text(title),
+            content: Text(body),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                style:
+                    destructive
+                        ? TextButton.styleFrom(foregroundColor: scheme.error)
+                        : null,
+                child: Text(confirmLabel),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: destructive
-                ? TextButton.styleFrom(foregroundColor: scheme.error)
-                : null,
-            child: Text(confirmLabel),
-          ),
-        ],
-      ),
     );
     return result ?? false;
   }
