@@ -26,8 +26,12 @@ jobs:
         include:
           # Pinned: ubuntu-latest moves to a newer clang that likely turns a
           # deprecation in flutter_secure_storage_linux's json.hpp into an error.
-          - { os: ubuntu-24.04, target: linux }
-          - { os: macos-15, target: macos }
+          - os: ubuntu-24.04
+            target: linux
+            registrant: linux/flutter/generated_plugin_registrant.cc
+          - os: macos-15
+            target: macos
+            registrant: macos/Flutter/GeneratedPluginRegistrant.swift
     runs-on: ${{ matrix.os }}
     env:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
@@ -49,6 +53,10 @@ jobs:
           cache: true
 
       - run: flutter build ${{ matrix.target }} --release
+      # A desktop build with no native folder dialog still packages and ships
+      # (1.1.2's first cut did); the registrant is where that shows. Same
+      # check as ci.yml, here too because a tag need not have passed CI.
+      - run: grep -q FileSelectorPlugin ${{ matrix.registrant }}
       - run: tool/package_desktop.sh ${{ matrix.target }}
 
       # Proves the control file parses and its Depends resolve.
