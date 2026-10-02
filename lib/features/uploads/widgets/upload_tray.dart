@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -57,11 +58,37 @@ class _UploadTrayState extends ConsumerState<UploadTray> {
   /// leaving, because the state it was rendering is already gone.
   _TraySpec? _retained;
 
+  /// Desktop: Cmd+Q and the window's close button end the process, and a
+  /// commit in flight with it. Refuse while a batch is running and say why.
+  AppLifecycleListener? _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(onExitRequested: _onExitRequested);
+  }
+
   @override
   void dispose() {
     _dismissTimer?.cancel();
     _exitTimer?.cancel();
+    _lifecycle?.dispose();
     super.dispose();
+  }
+
+  Future<AppExitResponse> _onExitRequested() async {
+    if (!ref.read(uploadQueueNotifierProvider).isBusy) {
+      return AppExitResponse.exit;
+    }
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      const SnackBar(
+        content: Text(
+          'An upload is still running - wait for it, or cancel it, before '
+          'quitting.',
+        ),
+      ),
+    );
+    return AppExitResponse.cancel;
   }
 
   @override
@@ -221,16 +248,17 @@ class _UploadTrayState extends ConsumerState<UploadTray> {
       tween: Tween<double>(end: value),
       duration: context.motion(const Duration(milliseconds: 400)),
       curve: Curves.easeOut,
-      builder: (context, animated, _) => SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(
-          value: animated,
-          strokeWidth: 2.5,
-          color: spec.tint,
-          backgroundColor: spec.tint.withValues(alpha: 0.22),
-        ),
-      ),
+      builder:
+          (context, animated, _) => SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              value: animated,
+              strokeWidth: 2.5,
+              color: spec.tint,
+              backgroundColor: spec.tint.withValues(alpha: 0.22),
+            ),
+          ),
     );
   }
 
@@ -271,9 +299,10 @@ class _UploadTrayState extends ConsumerState<UploadTray> {
         // among eleven photos actually takes.
         progress: progress.progress,
         title: 'Uploading$where - ${progress.done} of ${progress.total}',
-        detail: progress.itemProgress != null
-            ? 'Compressing ${(progress.itemProgress! * 100).round()}%'
-            : progress.currentLabel,
+        detail:
+            progress.itemProgress != null
+                ? 'Compressing ${(progress.itemProgress! * 100).round()}%'
+                : progress.currentLabel,
       );
     }
 
@@ -288,9 +317,8 @@ class _UploadTrayState extends ConsumerState<UploadTray> {
         tint: appColors.warning,
         icon: Icons.cloud_off_rounded,
         title: '$waiting - uploads resume automatically.',
-        detail: retryAfter == null
-            ? null
-            : 'Retrying at ${clockTime(retryAfter)}',
+        detail:
+            retryAfter == null ? null : 'Retrying at ${clockTime(retryAfter)}',
       );
     }
 
@@ -300,13 +328,12 @@ class _UploadTrayState extends ConsumerState<UploadTray> {
         kind: _TrayKind.failed,
         tint: scheme.error,
         icon: Icons.error_outline_rounded,
-        title: count == 1
-            ? "1 item didn't upload"
-            : "$count items didn't upload",
+        title:
+            count == 1 ? "1 item didn't upload" : "$count items didn't upload",
         detail: 'Open to see which ones',
         actionLabel: 'Retry',
-        onAction: () =>
-            ref.read(uploadQueueNotifierProvider.notifier).retryAll(),
+        onAction:
+            () => ref.read(uploadQueueNotifierProvider.notifier).retryAll(),
       );
     }
 
@@ -321,9 +348,10 @@ class _UploadTrayState extends ConsumerState<UploadTray> {
         title:
             'Added ${n == 1 ? '1 item' : '$n items'} to '
             '${albumTitle(completed)}',
-        detail: skipped == 0
-            ? null
-            : '${skipped == 1 ? '1 file' : '$skipped files'} skipped',
+        detail:
+            skipped == 0
+                ? null
+                : '${skipped == 1 ? '1 file' : '$skipped files'} skipped',
         actionLabel: 'View',
         onAction: _viewCompleted,
       );

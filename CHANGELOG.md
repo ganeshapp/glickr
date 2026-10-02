@@ -45,6 +45,11 @@
   "your phone"; the Wi-Fi-only switch is not offered on desktop, where no
   transport is metered; and the README and privacy policy name where glickr
   keeps its files on each OS and what uninstalling leaves behind.
+- **macOS refuses to quit mid-upload.** Cmd+Q or closing the window while
+  a batch is running now keeps the app open and says why, instead of ending
+  the process with a commit in flight.
+- **The Linux package recommends GNOME Keyring**, so `apt install` on a
+  desktop without a Secret Service keyring brings one along.
 - **macOS picks photos from a folder, like Linux.** 1.1.0 read the Photos
   library, which on most Macs is empty, so "Add photos" showed nothing. Both
   desktops now use **Choose folder**; desktop uploads are photos only. (The
