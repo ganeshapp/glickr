@@ -24,8 +24,6 @@
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>$(PRODUCT_COPYRIGHT)</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>glickr shows your Photos library so you can pick what to upload. Nothing leaves your Mac until you tap Upload.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>

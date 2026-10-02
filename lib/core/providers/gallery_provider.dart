@@ -2,7 +2,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../platform.dart';
-import '../services/linux_media.dart';
+import '../services/desktop_media.dart';
 
 part 'gallery_provider.g.dart';
 
@@ -97,7 +97,7 @@ class GalleryNotifier extends _$GalleryNotifier {
 
   /// Ask for gallery access and load the first page.
   Future<void> requestAndLoad() async {
-    if (isLinux) return _loadFolder();
+    if (isDesktop) return _loadFolder();
     _restartPaging();
     state = state.copyWith(isLoading: true, clearError: true);
     try {

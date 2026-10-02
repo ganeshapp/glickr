@@ -11,8 +11,9 @@ import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 
 import '../platform.dart';
 
-// Linux has none of photo_manager, flutter_image_compress, video_compress or
-// video_player. It uploads photos only; everything that differs is in here.
+// On a desktop the "gallery" is a folder the user picks, not a photo library
+// (a Mac's Photos app is usually empty; Linux has none). Desktop uploads
+// photos only, re-encoded in pure Dart; everything that differs is in here.
 
 const _photoExtensions = {'.jpg', '.jpeg', '.png', '.webp'};
 
@@ -23,7 +24,7 @@ AssetEntity fileAsset(String path) =>
     AssetEntity(id: path, typeInt: AssetType.image.index, width: 0, height: 0);
 
 ImageProvider assetThumbnail(AssetEntity asset, int size) =>
-    isLinux
+    isDesktop
         ? ResizeImage(FileImage(File(asset.id)), width: size)
         : AssetEntityImageProvider(
           asset,
@@ -32,7 +33,7 @@ ImageProvider assetThumbnail(AssetEntity asset, int size) =>
         );
 
 Future<File?> assetSourceFile(AssetEntity asset) async =>
-    isLinux ? File(asset.id) : await asset.originFile;
+    isDesktop ? File(asset.id) : await asset.originFile;
 
 /// The Linux "gallery": the photos in a folder the user picks, by file name.
 /// Null when the dialog is cancelled.

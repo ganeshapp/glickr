@@ -12,7 +12,7 @@ import 'package:photo_manager/photo_manager.dart';
 
 import 'package:glickr/core/platform.dart';
 import 'package:glickr/core/providers/gallery_provider.dart';
-import 'package:glickr/core/services/linux_media.dart';
+import 'package:glickr/core/services/desktop_media.dart';
 import 'package:glickr/features/picker/presentation/media_picker_screen.dart';
 
 /// The GTK folder dialog, answered by the test.

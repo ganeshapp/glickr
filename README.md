@@ -137,11 +137,11 @@ macOS forgets its approvals with each update: expect that step, the Photos promp
 
 **What differs on desktop:**
 
-- **macOS** picks from your Photos library, videos included, exactly like the phone.
-- **Linux** has no photo library: **Choose folder** fills the grid with that folder's JPEG, PNG
-  and WebP photos, and the order you tap them still decides the filenames. Linux uploads photos
-  only. A video in an album opens in your default player instead of inside glickr, has no poster
-  frame in the grid, and **Share** becomes **Open**.
+- **Choose folder** replaces the phone's gallery on both desktops: it fills the grid with that
+  folder's JPEG, PNG and WebP photos, and the order you tap them still decides the filenames.
+  Desktop uploads photos only; use the phone for videos.
+- **Linux** cannot play video: a video in an album opens in your default player instead of inside
+  glickr, has no poster frame in the grid, and **Share** becomes **Open**.
 - In the viewer, ← and → page and Esc closes. A mouse drag pulls the album list down to refresh.
 
 Building locally: `flutter build macos` needs Xcode and CocoaPods; `flutter build linux` needs

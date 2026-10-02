@@ -8,7 +8,7 @@ import '../../../core/providers/albums_provider.dart';
 import '../../../core/providers/config_provider.dart';
 import '../../../core/providers/services_provider.dart';
 import '../../../core/providers/upload_provider.dart';
-import '../../../core/services/linux_media.dart';
+import '../../../core/services/desktop_media.dart';
 import '../../../core/services/media_pipeline_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/album_conventions.dart';

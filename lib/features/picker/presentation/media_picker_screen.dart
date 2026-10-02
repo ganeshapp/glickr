@@ -9,7 +9,7 @@ import '../../../core/providers/albums_provider.dart';
 import '../../../core/providers/config_provider.dart';
 import '../../../core/providers/gallery_provider.dart';
 import '../../../core/providers/services_provider.dart';
-import '../../../core/services/linux_media.dart';
+import '../../../core/services/desktop_media.dart';
 import '../../../core/services/media_pipeline_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -96,7 +96,7 @@ class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
   /// open, and keying off that alone would re-explain the permission to
   /// somebody who granted it months ago.
   Future<void> _resolveAccess() async {
-    if (isLinux) return _load();
+    if (isDesktop) return _load();
     var granted = false;
     try {
       final state = await PhotoManager.getPermissionState(
@@ -259,7 +259,7 @@ class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
       appBar: AppBar(
         title: _title(state),
         actions: [
-          if (isLinux)
+          if (isDesktop)
             IconButton(
               icon: const Icon(Icons.folder_open_rounded),
               tooltip: 'Choose folder',
@@ -325,7 +325,7 @@ class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
     if (_resolvingAccess) return _skeletonGrid();
     if (_explainPermission) return _permissionPanel(context);
 
-    if (isLinux && state.assets.isEmpty) {
+    if (isDesktop && state.assets.isEmpty) {
       return EmptyState(
         icon: Icons.folder_open_rounded,
         title: 'Choose a folder of photos',

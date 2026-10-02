@@ -85,8 +85,7 @@ of this is copied into Android or cloud backups.
 
 **On macOS and Linux** the token is kept in the login keychain (macOS) or the
 desktop's Secret Service keyring (Linux) instead, and the rest in the app's own
-data folder. The picker reads only what you choose: the Photos library on
-macOS, once you allow it, and on Linux the photos in a folder you pick.
+data folder. The picker reads only the photos in a folder you choose.
 
 ## Your GitHub token
 

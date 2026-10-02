@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.2 — 2026-10-02
+
+### Changed
+
+- **macOS picks photos from a folder, like Linux.** 1.1.0 read the Photos
+  library, which on most Macs is empty, so "Add photos" showed nothing. Both
+  desktops now use **Choose folder**; desktop uploads are photos only.
+
 ## 1.1.1 — 2026-10-02
 
 ### Fixed

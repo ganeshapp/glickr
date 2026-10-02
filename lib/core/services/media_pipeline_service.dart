@@ -11,7 +11,7 @@ import 'package:video_compress/video_compress.dart';
 import '../models/app_config.dart';
 import '../platform.dart';
 import '../utils/album_conventions.dart';
-import 'linux_media.dart';
+import 'desktop_media.dart';
 
 /// Concrete numbers behind Low / Medium / High.
 class PresetSpec {
@@ -190,7 +190,7 @@ class MediaPipelineService {
 
     File? out;
     try {
-      if (isLinux) {
+      if (isDesktop) {
         out = await encodeJpeg(
           source.path,
           targetPath,
