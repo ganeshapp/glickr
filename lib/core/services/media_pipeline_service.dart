@@ -138,7 +138,11 @@ class MediaPipelineService {
   /// (DivX, Xvid, MJPEG) are not decodable either. video_compress reports this
   /// as a bare null, indistinguishable from a user cancel, so it is rejected
   /// up front with a message that says what actually happened.
-  static const Set<String> unsupportedVideoExtensions = {'.avi', '.wmv', '.flv'};
+  static const Set<String> unsupportedVideoExtensions = {
+    '.avi',
+    '.wmv',
+    '.flv',
+  };
 
   /// Bumped by every [cancelVideo] call; captured by every [processVideo] run.
   ///
@@ -306,8 +310,9 @@ class MediaPipelineService {
       });
     }
 
+    MediaInfo? info;
     try {
-      final info = await VideoCompress.compressVideo(
+      info = await VideoCompress.compressVideo(
         source.absolute.path,
         quality: spec.videoQuality,
         deleteOrigin: false,
@@ -321,6 +326,11 @@ class MediaPipelineService {
       if (compressed == null) {
         // A bare null. Both onTranscodeFailed and onTranscodeCanceled report
         // success(null), so with the epoch unmoved this is a real failure.
+        // Whatever partial output it left has a name only the plugin knows,
+        // so its cache folder is the only handle on it. (On Android, the only
+        // platform that transcodes, that folder is the app's own; on macOS it
+        // would be the user's shared temp dir.)
+        await VideoCompress.deleteAllCache().catchError((_) => false);
         throw const MediaProcessingException(
           "This video's format couldn't be converted",
         );
@@ -365,9 +375,10 @@ class MediaPipelineService {
     } finally {
       subscription?.unsubscribe();
       _videoInFlight = false;
-      // The plugin writes partial output into its own cache directory;
-      // leaving it there leaks storage across a long session.
-      await VideoCompress.deleteAllCache().catchError((_) => false);
+      // Only this run's output, not deleteAllCache: the plugin's folder is
+      // $TMPDIR/video_compress on macOS, shared with every app using it.
+      final output = info?.file;
+      if (output != null) await output.delete().catchError((_) => output);
     }
   }
 
