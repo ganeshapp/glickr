@@ -1,5 +1,5 @@
 name: glickr
-description: "Manage photo albums stored in a GitHub repo, from your phone."
+description: "Manage photo albums stored in a GitHub repo."
 publish_to: 'none'
 version: 1.1.2+6
 
@@ -42,11 +42,13 @@ dependencies:
   # rootProject.allprojects and breaks the whole Gradle build.
   video_compress: ^3.1.4
 
-  # Linux has none of the above: a folder the user picks stands in for the
-  # gallery (GTK dialog), and photos are re-encoded in pure Dart. The
-  # implementation + interface rather than file_selector, which would also pull
-  # file_selector_android into the APK.
+  # Desktops have none of the above: a folder the user picks stands in for the
+  # gallery (native dialog), and photos are re-encoded in pure Dart. The two
+  # implementations + interface rather than file_selector, which would also
+  # pull file_selector_android into the APK. CI greps each generated plugin
+  # registrant for FileSelectorPlugin, so a desktop can't ship without one.
   file_selector_linux: ^0.9.3
+  file_selector_macos: ^0.9.4
   file_selector_platform_interface: ^2.6.0
   image: ^4.8.0
 

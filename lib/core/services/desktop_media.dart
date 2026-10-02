@@ -35,7 +35,7 @@ ImageProvider assetThumbnail(AssetEntity asset, int size) =>
 Future<File?> assetSourceFile(AssetEntity asset) async =>
     isDesktop ? File(asset.id) : await asset.originFile;
 
-/// The Linux "gallery": the photos in a folder the user picks, by file name.
+/// The desktop "gallery": the photos in a folder the user picks, by file name.
 /// Null when the dialog is cancelled.
 Future<List<AssetEntity>?> pickPhotoFolder() async {
   final dir = await FileSelectorPlatform.instance.getDirectoryPathWithOptions(

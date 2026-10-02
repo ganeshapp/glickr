@@ -72,8 +72,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-24.04, target: linux }
-          - { os: macos-15, target: macos }
+          - os: ubuntu-24.04
+            target: linux
+            registrant: linux/flutter/generated_plugin_registrant.cc
+          - os: macos-15
+            target: macos
+            registrant: macos/Flutter/GeneratedPluginRegistrant.swift
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -92,6 +96,12 @@ jobs:
       # The same release build and packaging the release workflow runs, so a
       # broken .deb/.dmg shows up on the PR instead of after tagging.
       - run: flutter build ${{ matrix.target }} --release
+      # The folder picker is a platform-interface call: with no native
+      # implementation for this desktop it still compiles, links and packages,
+      # and throws MissingPluginException at the first "Add photos". 1.1.2
+      # shipped that way on macOS. The generated registrant is the one place
+      # the gap is visible.
+      - run: grep -q FileSelectorPlugin ${{ matrix.registrant }}
       - run: tool/package_desktop.sh ${{ matrix.target }}
       - if: runner.os == 'Linux'
         run: sudo apt-get install -y ./build/dist/*.deb

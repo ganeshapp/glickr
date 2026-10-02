@@ -6,7 +6,9 @@
 
 - **macOS picks photos from a folder, like Linux.** 1.1.0 read the Photos
   library, which on most Macs is empty, so "Add photos" showed nothing. Both
-  desktops now use **Choose folder**; desktop uploads are photos only.
+  desktops now use **Choose folder**; desktop uploads are photos only. (The
+  first cut of this had no macOS folder dialog behind it - CI now checks that
+  every desktop build links one.)
 
 ## 1.1.1 — 2026-10-02
 

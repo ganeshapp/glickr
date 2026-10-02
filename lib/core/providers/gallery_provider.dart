@@ -144,7 +144,8 @@ class GalleryNotifier extends _$GalleryNotifier {
     }
   }
 
-  /// Linux has no photo library; a folder the user picks stands in for one.
+  /// A desktop has no usable photo library; a folder the user picks stands in
+  /// for one.
   /// Cancelling the dialog keeps whatever is already showing.
   Future<void> _loadFolder() async {
     try {
