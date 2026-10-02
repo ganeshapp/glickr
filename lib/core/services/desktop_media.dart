@@ -87,7 +87,7 @@ Future<File> encodeJpeg(
   // to the target, in the staging directory, not in /tmp.
   final jpeg = '$target.heic.jpg';
   final sips = await Process.run('sips', [
-    ...['-s', 'format', 'jpeg', source, '--out', jpeg],
+    '-s', 'format', 'jpeg', source, '--out', jpeg, //
   ]);
   if (sips.exitCode != 0) {
     throw FormatException("Couldn't convert this HEIC photo: ${sips.stderr}");

@@ -105,7 +105,7 @@ void main() {
         source.exif.imageIfd.orientation = 6;
         final heic = p.join(tmp.path, 'source.heic');
         final sips = Process.runSync('sips', [
-          ...['-s', 'format', 'heic', write(source), '--out', heic],
+          '-s', 'format', 'heic', write(source), '--out', heic, //
         ]);
         expect(sips.exitCode, 0, reason: '${sips.stderr}');
 
