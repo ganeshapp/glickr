@@ -109,9 +109,20 @@ void main() {
         box('udta', [gps]),
       ]),
     ]);
+    // A 64-bit moov size that wraps `start + size` negative: the one range
+    // check that overflow could slip past, which then seeks before 0.
+    final wrapping = Uint8List.fromList([
+      ...ftyp,
+      ...(ByteData(16)
+            ..setUint32(0, 1)
+            ..setUint64(8, 0x7FFFFFFFFFFFFFF4))
+          .buffer
+          .asUint8List(),
+    ])..setRange(ftyp.length + 4, ftyp.length + 8, 'moov'.codeUnits);
     for (final clip in [
       truncated,
       noFtyp,
+      wrapping,
       Uint8List.fromList([1, 2, 3]),
     ]) {
       file.writeAsBytesSync(clip);

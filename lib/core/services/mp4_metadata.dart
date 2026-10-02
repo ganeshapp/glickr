@@ -68,7 +68,8 @@ Future<List<_Box>> _boxes(RandomAccessFile raf, int start, int end) async {
     } else if (size == 0) {
       size = end - at;
     }
-    if (size < body - at || at + size > end) {
+    // Subtractions only: `at + size` can wrap for a 64-bit size near 2^63.
+    if (size < body - at || size > end - at) {
       throw const FormatException('box size out of range');
     }
     boxes.add(_Box(String.fromCharCodes(header, 4, 8), at, body, at + size));

@@ -356,10 +356,11 @@ class MediaPipelineService {
       // rewrites the GPS fix, AVFoundation copies every key - and a public
       // repo keeps a clip's location forever. Photos get their EXIF stripped;
       // this is the video equivalent, and a clip it cannot vouch for is not
-      // uploaded.
+      // uploaded. Whatever the stripper threw - a FormatException is its
+      // verdict, anything else is this item's problem too, not the batch's.
       try {
         await stripMp4Metadata(moved);
-      } on FormatException {
+      } catch (_) {
         await moved.delete().catchError((_) => moved);
         throw const MediaProcessingException(
           "Couldn't remove this video's location data, so it wasn't uploaded",
