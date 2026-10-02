@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -32,12 +33,36 @@ void main() {
   final refusing = SecureStorageService(storage: const _RefusingStorage());
 
   test(
-    'an unreadable keychain at launch is "not signed in", not a throw',
+    'an unreadable keychain at launch is "not signed in", with the reason',
     () async {
       final auth = AuthService(secureStorage: refusing, dio: Dio());
-      expect(await auth.checkExistingAuth(), isA<AuthFailure>());
+      expect(
+        await auth.checkExistingAuth(),
+        isA<AuthFailure>().having(
+          (f) => f.message,
+          'message',
+          startsWith("Couldn't read your sign-in from the keychain"),
+        ),
+      );
+
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      expect(
+        await auth.checkExistingAuth(),
+        isA<AuthFailure>().having(
+          (f) => f.message,
+          'message',
+          contains('gnome-keyring'),
+        ),
+      );
     },
   );
+
+  test('nothing stored is the plain sign-in screen, with no message', () async {
+    FlutterSecureStorage.setMockInitialValues({});
+    final auth = AuthService(secureStorage: SecureStorageService(), dio: Dio());
+    expect(await auth.checkExistingAuth(), isA<AuthSignedOut>());
+  });
 
   test(
     'the launch check lands on the sign-in screen, not the splash',
@@ -52,7 +77,14 @@ void main() {
       // The check runs as a microtask off build().
       await Future<void>.delayed(Duration.zero);
 
-      expect(container.read(authNotifierProvider), isA<AuthUnauthenticated>());
+      expect(
+        container.read(authNotifierProvider),
+        isA<AuthUnauthenticated>().having(
+          (s) => s.message,
+          'message',
+          contains('keychain'),
+        ),
+      );
     },
   );
 }

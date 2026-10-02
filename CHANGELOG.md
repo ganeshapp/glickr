@@ -11,8 +11,9 @@
   skips a clip it cannot do that to.
 - **A keychain that refuses no longer strands you on the splash screen.** On
   Linux without a Secret Service keyring, or after Deny on the macOS keychain
-  prompt, the launch check now lands on the sign-in screen, and a sign-in
-  that cannot be saved says so in plain words.
+  prompt, the launch check now lands on the sign-in screen, which says why
+  (on Linux, which keyring to install), and a sign-in that cannot be saved
+  says so in plain words.
 
 ### Changed
 

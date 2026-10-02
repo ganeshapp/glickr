@@ -23,6 +23,11 @@ class AuthFailure extends AuthResult {
   const AuthFailure(this.message);
 }
 
+/// Nothing is stored: a first launch, or after logout.
+class AuthSignedOut extends AuthResult {
+  const AuthSignedOut();
+}
+
 /// A stored token exists but GitHub could not be reached to validate it.
 /// The user should stay authenticated and work against cached data.
 class AuthOffline extends AuthResult {
@@ -73,23 +78,27 @@ class AuthService {
     } on DioException catch (e) {
       return _handleDioError(e);
     } on PlatformException {
-      // The secure storage plugin: no Secret Service on Linux, or the user
-      // denied the macOS keychain prompt.
-      return AuthFailure(
-        isLinux
-            ? 'No keyring to keep your sign-in in. Install gnome-keyring (or '
-                'KWallet) and relaunch.'
-            : "Couldn't save your sign-in to this device's secure storage.",
+      return _storageFailure(
+        "Couldn't save your sign-in to this device's secure storage.",
       );
     } catch (e) {
       return AuthFailure('Unexpected error: ${e.toString()}');
     }
   }
 
+  /// The secure storage plugin threw: no Secret Service on Linux, or Deny on
+  /// the macOS keychain prompt.
+  AuthFailure _storageFailure(String otherwise) => AuthFailure(
+    isLinux
+        ? 'No keyring to keep your sign-in in. Install gnome-keyring (or '
+            'KWallet) and relaunch.'
+        : otherwise,
+  );
+
   /// Validate and persist a device-flow token set ([tokens] from
   /// [GitHubOAuthService.pollForToken]). On success the session is marked
   /// as [AuthMethods.device] and [clientId] is remembered so the ApiClient
-  /// can auto-refresh and re-login stays one tap.
+  /// can auto-refresh and re-login stays one step.
   Future<AuthResult> completeDeviceLogin({
     required OAuthTokens tokens,
     required String clientId,
@@ -112,16 +121,14 @@ class AuthService {
   ///
   /// Unlike [validateToken], a network/connection failure here does NOT
   /// invalidate the session: the stored token is trusted and [AuthOffline]
-  /// is returned so the app can proceed with cached data. Only a real 401
-  /// response (revoked/expired token), a missing token or unreadable storage
+  /// is returned so the app can proceed with cached data. No stored token is
+  /// [AuthSignedOut]; a real 401 (revoked/expired token) or unreadable storage
   /// (Linux without a Secret Service keyring, Deny on the macOS keychain
-  /// prompt) returns [AuthFailure] - never a throw, which would leave the
-  /// app on the splash screen.
+  /// prompt) is [AuthFailure], whose message the sign-in screen shows - never
+  /// a throw, which would leave the app on the splash screen.
   Future<AuthResult> checkExistingAuth() async {
     try {
-      if (!await _secureStorage.hasToken()) {
-        return const AuthFailure('No token stored');
-      }
+      if (!await _secureStorage.hasToken()) return const AuthSignedOut();
 
       final response = await _dio.get(
         '/user',
@@ -151,6 +158,11 @@ class AuthService {
       // Other transient errors (403 rate limit, 5xx, cancel): don't log
       // the user out over them either
       return const AuthOffline();
+    } on PlatformException {
+      return _storageFailure(
+        "Couldn't read your sign-in from the keychain. Relaunch and allow "
+        'access, or sign in again.',
+      );
     } catch (e) {
       return AuthFailure('Unexpected error: ${e.toString()}');
     }

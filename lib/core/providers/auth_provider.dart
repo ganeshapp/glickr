@@ -98,7 +98,10 @@ class AuthNotifier extends _$AuthNotifier {
       AuthSuccess(user: final user) => AuthAuthenticated(user),
       // Stored token but GitHub unreachable: stay in, use cached data
       AuthOffline() => const AuthOfflineAuthenticated(),
-      AuthFailure() => const AuthUnauthenticated(),
+      AuthSignedOut() => const AuthUnauthenticated(),
+      // A keychain that would not open, a revoked token: the sign-in screen
+      // says why it is back
+      AuthFailure(message: final message) => AuthUnauthenticated(message),
     };
   }
 
@@ -127,9 +130,12 @@ class AuthNotifier extends _$AuthNotifier {
       case AuthSuccess(user: final user):
         state = AuthAuthenticated(user);
         return true;
+      // validateToken never returns these two; the switch has to be whole
       case AuthOffline():
-        // validateToken never returns this, but handle it defensively
         state = const AuthUnauthenticated('No internet connection');
+        return false;
+      case AuthSignedOut():
+        state = const AuthUnauthenticated();
         return false;
       case AuthFailure(message: final message):
         state = AuthUnauthenticated(message);
