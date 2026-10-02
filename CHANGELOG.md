@@ -23,6 +23,17 @@
   flutter_secure_storage app shares are deleted on first launch - deleted
   only, never read, since that slot can belong to another app. If you were
   signed in with 1.1.0, sign in again once.
+- **Desktop data and cache have fixed, private, per-user homes.** On Linux
+  the app's files live in `~/.local/share/com.glickr.glickr` and the media
+  cache in `~/.cache/com.glickr.glickr` (or under `$XDG_DATA_HOME` /
+  `$XDG_CACHE_HOME`), created mode 0700. Before, the data folder moved between
+  two names depending on whether a GLib development package was installed,
+  and the cache sat in `/tmp` - shared with every account on the machine and
+  emptied at boot. On macOS the cache moves from the temp folder, which is
+  purged after three days, to `~/Library/Caches/com.glickr.glickr`. The
+  cache index now lives next to the files.
+- **Linux: launching glickr while it is running raises the open window**
+  instead of opening a second, blank one.
 - **macOS picks photos from a folder, like Linux.** 1.1.0 read the Photos
   library, which on most Macs is empty, so "Add photos" showed nothing. Both
   desktops now use **Choose folder**; desktop uploads are photos only. (The
