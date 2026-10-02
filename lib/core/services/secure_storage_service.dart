@@ -26,7 +26,14 @@ class SecureStorageService {
     ),
     // The default data-protection keychain needs an entitlement an ad-hoc
     // signed build cannot have (-34018); the login keychain needs none.
-    mOptions: MacOsOptions(useDataProtectionKeyChain: false),
+    // accountName is the keychain service name. Without it every
+    // flutter_secure_storage app shares one, so glickr would try to read
+    // JekyllPress's github_pat item and macOS would demand the login keychain
+    // password for it.
+    mOptions: MacOsOptions(
+      useDataProtectionKeyChain: false,
+      accountName: 'com.glickr.glickr',
+    ),
   );
 
   /// Save the GitHub access token (PAT or device-flow access token)

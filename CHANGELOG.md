@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.1 — 2026-10-02
+
+### Fixed
+
+- **macOS asked for the login keychain password on first launch.** glickr
+  stored its sign-in under flutter_secure_storage's default keychain service
+  name, which JekyllPress uses too, so it tried to read JekyllPress's token
+  item and macOS blocked it. glickr now has its own keychain service name.
+  Android and Linux are unaffected.
+
 ## 1.1.0 — 2026-10-02
 
 ### Added
