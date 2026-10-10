@@ -120,24 +120,6 @@ class SecureStorageService {
     s[_authMethod] = AuthMethods.device;
   });
 
-  /// 1.1.0 wrote its items under the plugin's default service name, which it
-  /// shares with every other flutter_secure_storage app on the Mac. Delete
-  /// those, once. Never read them - the same slot may hold another app's
-  /// token, which is how the shared name surfaced - and never deleteAll,
-  /// which would take the other apps' items with them.
-  static Future<void> deleteSharedServiceItems() async {
-    const shared = FlutterSecureStorage(
-      mOptions: MacOsOptions(useDataProtectionKeyChain: false),
-    );
-    for (final field in _fields) {
-      try {
-        await shared.delete(key: field);
-      } catch (_) {
-        // The item's ACL may refuse. Once is all this is tried.
-      }
-    }
-  }
-
   Future<Map<String, String>> _read() async {
     final raw = await _storage.read(key: _sessionKey);
     if (raw != null) return Map<String, String>.from(jsonDecode(raw) as Map);

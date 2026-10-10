@@ -136,22 +136,4 @@ void main() {
 
     expect(items, isEmpty);
   });
-
-  test(
-    'the shared-service cleanup deletes the five keys and nothing else',
-    () async {
-      items.addAll({
-        'github_pat': 'another_apps_token',
-        'auth_method': 'pat',
-        'oauth_client_id': 'x',
-        'refresh_token': 'y',
-        'access_token_expiry': 'z',
-        'someone_elses_key': 'keep',
-      });
-
-      await SecureStorageService.deleteSharedServiceItems();
-
-      expect(items, {'someone_elses_key': 'keep'});
-    },
-  );
 }

@@ -1,6 +1,6 @@
 # glickr Privacy Policy
 
-_Last updated: 2026-10-03 (v1.1.2)_
+_Last updated: 2026-10-10 (v1.1.3)_
 
 glickr is an open-source app for Android, macOS and Linux that manages photo
 albums stored as folders in **your own GitHub repository**, so a Jekyll site
@@ -96,7 +96,9 @@ and `~/.cache/com.glickr.glickr` on Linux (or under `$XDG_DATA_HOME` and
 `$XDG_CACHE_HOME` when set). The picker reads only the photos in a folder you
 choose. Uninstalling the app leaves all of that in place: delete the two folders
 and the keychain item (Keychain Access, search `com.glickr.glickr`) or keyring
-entry (Passwords and Keys, or KWalletManager) to remove every trace.
+entry (Passwords and Keys, or KWalletManager) to remove every trace. 1.1.0 also
+left items under `flutter_secure_storage_service` in the login keychain, which
+later versions never touch; delete them in Keychain Access as well.
 
 ## Your GitHub token
 
