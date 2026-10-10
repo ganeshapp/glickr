@@ -7,9 +7,7 @@
 - **No keychain password prompts on first launch.** 1.1.2 tried to delete
   the items 1.1.0 had left under the keychain service name every
   flutter_secure_storage app shares, and macOS asked for the login keychain
-  password for each one. glickr now never touches that shared name. The
-  leftover items are harmless; to remove them, search
-  `flutter_secure_storage_service` in Keychain Access.
+  password for each one. glickr now never touches that shared name.
 
 ## 1.1.2 — 2026-10-03
 
