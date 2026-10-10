@@ -1,7 +1,7 @@
 name: glickr
 description: "Manage photo albums stored in a GitHub repo."
 publish_to: 'none'
-version: 1.1.3+7
+version: 1.1.4+8
 
 environment:
   sdk: ^3.7.0

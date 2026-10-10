@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.4 — 2026-10-10
+
+### Changed
+
+- **No migration code.** The steps that carried a 1.1.1 sign-in into the
+  single keychain item and moved 1.1.0/1.1.1's cache and data folders are
+  gone; the app only reads and writes its current locations. Coming from
+  1.1.1 or earlier means signing in once.
+
 ## 1.1.3 — 2026-10-10
 
 ### Fixed

@@ -5,28 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:glickr/core/services/secure_storage_service.dart';
 
-/// Counts reads, to show the 1.1.x probe runs once.
-class _CountingStorage extends FlutterSecureStorage {
-  int reads = 0;
-
-  @override
-  Future<String?> read({
-    required String key,
-    IOSOptions? iOptions,
-    AndroidOptions? aOptions,
-    LinuxOptions? lOptions,
-    WebOptions? webOptions,
-    MacOsOptions? mOptions,
-    WindowsOptions? wOptions,
-  }) {
-    reads++;
-    return super.read(key: key);
-  }
-}
-
-/// The session is one secure-storage item, so a macOS update costs one
-/// keychain prompt rather than five, and the 1.1.x item-per-field layout is
-/// folded into it on first read.
 void main() {
   late Map<String, String> items;
   late SecureStorageService storage;
@@ -73,42 +51,10 @@ void main() {
     expect(await storage.getAccessTokenExpiry(), isNull);
   });
 
-  test('the five 1.1.x items are folded into the session once', () async {
-    items.addAll({
-      'github_pat': 'ghu_old',
-      'auth_method': 'device',
-      'oauth_client_id': 'Ov23liABC',
-      'refresh_token': 'ghr_old',
-      'access_token_expiry': '2026-10-03T12:00:00.000Z',
-    });
-
-    expect(await storage.getToken(), 'ghu_old');
-
-    expect(items.keys, ['session']);
-    expect(session(), {
-      'github_pat': 'ghu_old',
-      'auth_method': 'device',
-      'oauth_client_id': 'Ov23liABC',
-      'refresh_token': 'ghr_old',
-      'access_token_expiry': '2026-10-03T12:00:00.000Z',
-    });
-    expect(await storage.getRefreshToken(), 'ghr_old');
-  });
-
   test('nothing stored reads as signed out and writes nothing', () async {
     expect(await storage.hasToken(), isFalse);
     expect(await storage.getClientId(), isNull);
     expect(items, isEmpty);
-  });
-
-  test('the 1.1.x items are looked for once, not on every read', () async {
-    final counting = _CountingStorage();
-    final storage = SecureStorageService(storage: counting);
-
-    await storage.hasToken();
-    expect(counting.reads, 6); // the session item, then the five old keys
-    await storage.getClientId();
-    expect(counting.reads, 7);
   });
 
   test('logout clears everything but the client id', () async {

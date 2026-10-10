@@ -134,9 +134,7 @@ xattr -dr com.apple.quarantine /Applications/glickr.app
 ```
 
 macOS re-checks an unnotarized app on every update: expect the Open Anyway step again, and one
-keychain "Always Allow" for glickr's sign-in item (there is only one). Updating from 1.1.1 asks once
-per saved field one last time - that is the migration into the single item; every update after that
-asks once.
+keychain "Always Allow" for glickr's sign-in item (there is only one).
 
 **What differs on desktop:**
 
@@ -153,10 +151,7 @@ asks once.
 two folders - `~/Library/Application Support/com.glickr.glickr` and `~/Library/Caches/com.glickr.glickr`
 on macOS, `~/.local/share/com.glickr.glickr` and `~/.cache/com.glickr.glickr` on Linux - and one
 sign-in item, `com.glickr.glickr` in the login keychain (Keychain Access) or in your keyring
-(Passwords and Keys, or KWalletManager). Delete those and nothing is left. (1.1.0 and 1.1.1 kept
-the cache at `~/Library/Caches/glickrMedia` on macOS and `/tmp/glickrMedia` on Linux, and Linux data
-sometimes in `~/.local/share/glickr`; the first launch of 1.1.2 takes those over, so they are gone
-once it has run.)
+(Passwords and Keys, or KWalletManager). Delete those and nothing is left.
 
 Building locally: `flutter build macos` needs Xcode and CocoaPods; `flutter build linux` needs
 the packages the `desktop` job in [`ci.yml`](.github/workflows/ci.yml) installs.

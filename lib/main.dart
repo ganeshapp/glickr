@@ -16,7 +16,6 @@ import 'features/uploads/widgets/upload_tray.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await adoptLegacyDesktopFiles();
   Hive.init((await appDataDir()).path); // == initFlutter() on Android
 
   // MediaItem BEFORE Album: Album nests a List<MediaItem>, and registering

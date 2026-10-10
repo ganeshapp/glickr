@@ -35,26 +35,14 @@ class SecureStorageService {
 
   static const _sessionKey = 'session';
 
-  // Fields of the JSON object. They are also the keys 1.1.x stored the same
-  // values under, one item each, which is what [_migrate] reads.
+  // Fields of the JSON object
   static const _token = 'github_pat';
   static const _authMethod = 'auth_method';
   static const _clientId = 'oauth_client_id';
   static const _refreshToken = 'refresh_token';
   static const _expiry = 'access_token_expiry';
-  static const _fields = [
-    _token,
-    _authMethod,
-    _clientId,
-    _refreshToken,
-    _expiry,
-  ];
 
   final FlutterSecureStorage _storage;
-
-  /// Whether [_migrate] has looked for 1.1.x items yet: once per instance, so
-  /// a fresh install is not five keyring round-trips on every read.
-  bool _migrated = false;
 
   SecureStorageService({FlutterSecureStorage? storage})
     : _storage =
@@ -122,11 +110,8 @@ class SecureStorageService {
 
   Future<Map<String, String>> _read() async {
     final raw = await _storage.read(key: _sessionKey);
-    if (raw != null) return Map<String, String>.from(jsonDecode(raw) as Map);
-    if (_migrated) return {};
-    final session = await _migrate();
-    _migrated = true;
-    return session;
+    if (raw == null) return {};
+    return Map<String, String>.from(jsonDecode(raw) as Map);
   }
 
   Future<void> _update(
@@ -139,23 +124,6 @@ class SecureStorageService {
     } else {
       await _storage.write(key: _sessionKey, value: jsonEncode(session));
     }
-  }
-
-  /// Fold the one-item-per-field layout of 1.1.x into the session item. On
-  /// macOS each item 1.1.1 saved is a keychain prompt of its own, this once;
-  /// an absent one is silent.
-  Future<Map<String, String>> _migrate() async {
-    final session = <String, String>{};
-    for (final field in _fields) {
-      final value = await _storage.read(key: field);
-      if (value != null) session[field] = value;
-    }
-    if (session.isEmpty) return session;
-    await _storage.write(key: _sessionKey, value: jsonEncode(session));
-    for (final field in _fields) {
-      await _storage.delete(key: field);
-    }
-    return session;
   }
 
   static void _set(Map<String, String> session, String field, String? value) {

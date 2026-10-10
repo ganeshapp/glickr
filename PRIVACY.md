@@ -1,6 +1,6 @@
 # glickr Privacy Policy
 
-_Last updated: 2026-10-10 (v1.1.3)_
+_Last updated: 2026-10-10 (v1.1.4)_
 
 glickr is an open-source app for Android, macOS and Linux that manages photo
 albums stored as folders in **your own GitHub repository**, so a Jekyll site
