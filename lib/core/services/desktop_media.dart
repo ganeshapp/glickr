@@ -53,6 +53,24 @@ ImageProvider assetThumbnail(AssetEntity asset, int size) =>
 Future<File?> assetSourceFile(AssetEntity asset) async =>
     isDesktop ? File(asset.id) : await asset.originFile;
 
+/// Accept regular photo files in drop order, once each. Folders and videos
+/// stay outside the desktop photo pipeline.
+Future<List<AssetEntity>> droppedPhotoAssets(Iterable<String> paths) async {
+  final accepted = <AssetEntity>[];
+  final seen = <String>{};
+  for (final path in paths) {
+    final normalized = p.normalize(p.absolute(path));
+    if (!seen.add(normalized) ||
+        !_photoExtensions.contains(p.extension(normalized).toLowerCase())) {
+      continue;
+    }
+    if (await FileSystemEntity.type(normalized) == FileSystemEntityType.file) {
+      accepted.add(fileAsset(normalized));
+    }
+  }
+  return accepted;
+}
+
 /// The desktop "gallery": the photos in a folder the user picks, by file name.
 /// Null when the dialog is cancelled.
 Future<List<AssetEntity>?> pickPhotoFolder() async {

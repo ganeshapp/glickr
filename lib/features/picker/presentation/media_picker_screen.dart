@@ -27,7 +27,9 @@ class MediaPickerScreen extends ConsumerStatefulWidget {
   /// Null means the user picks or creates the album after choosing photos.
   final Album? targetAlbum;
 
-  const MediaPickerScreen({super.key, this.targetAlbum});
+  final List<AssetEntity>? droppedAssets;
+
+  const MediaPickerScreen({super.key, this.targetAlbum, this.droppedAssets});
 
   @override
   ConsumerState<MediaPickerScreen> createState() => _MediaPickerScreenState();
@@ -96,6 +98,19 @@ class _MediaPickerScreenState extends ConsumerState<MediaPickerScreen> {
   /// open, and keying off that alone would re-explain the permission to
   /// somebody who granted it months ago.
   Future<void> _resolveAccess() async {
+    if (!mounted) return;
+    if (widget.droppedAssets != null) {
+      final assets = widget.droppedAssets!;
+      ref.read(galleryNotifierProvider.notifier).loadDroppedPhotos(assets);
+      setState(() {
+        _resolvingAccess = false;
+        _selected.addAll(assets);
+        for (var i = 0; i < assets.length; i++) {
+          _order[assets[i].id] = i + 1;
+        }
+      });
+      return;
+    }
     if (isDesktop) return _load();
     var granted = false;
     try {

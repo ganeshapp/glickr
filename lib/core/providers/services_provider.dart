@@ -13,6 +13,7 @@ import '../services/repo_repository.dart';
 import '../services/upload_queue_service.dart';
 import '../services/upload_service.dart';
 import 'config_provider.dart';
+import 'deployment_provider.dart';
 
 part 'services_provider.g.dart';
 
@@ -35,7 +36,16 @@ GitDataService gitDataService(Ref ref) {
 
 @Riverpod(keepAlive: true)
 CommitService commitService(Ref ref) {
-  return CommitService(git: ref.watch(gitDataServiceProvider));
+  return CommitService(
+    git: ref.watch(gitDataServiceProvider),
+    onCommitted: (config, sha) {
+      if (ref.read(configNotifierProvider)?.repoOwner == config.repoOwner &&
+          ref.read(configNotifierProvider)?.repoName == config.repoName &&
+          ref.read(configNotifierProvider)?.branch == config.branch) {
+        ref.read(deploymentProvider.notifier).track(sha);
+      }
+    },
+  );
 }
 
 @Riverpod(keepAlive: true)

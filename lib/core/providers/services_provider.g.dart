@@ -47,7 +47,7 @@ final gitDataServiceProvider = Provider<GitDataService>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef GitDataServiceRef = ProviderRef<GitDataService>;
-String _$commitServiceHash() => r'a8d44b536c0ba1947989db1af9acb197a4ac4c9f';
+String _$commitServiceHash() => r'3e693bd44721724a6fb4e0162e29d7ca1a421784';
 
 /// See also [commitService].
 @ProviderFor(commitService)

@@ -42,7 +42,8 @@ class CommitNoop extends CommitOutcome {
 class CommitService {
   final GitDataService _git;
 
-  CommitService({required GitDataService git}) : _git = git;
+  final void Function(AppConfig, String)? onCommitted;
+  CommitService({required GitDataService git, this.onCommitted}) : _git = git;
 
   /// Read the current head and full tree.
   Future<TreeSnapshot> readTree(AppConfig config) async {
@@ -79,7 +80,10 @@ class CommitService {
     for (var attempt = 0; attempt < maxAttempts; attempt++) {
       final tree = await readTree(config);
       final entries = await buildEntries(tree);
-      if (entries.isEmpty) return CommitNoop(tree.commitSha);
+      if (entries.isEmpty) {
+        onCommitted?.call(config, tree.commitSha);
+        return CommitNoop(tree.commitSha);
+      }
 
       final newTreeSha = await _git.createTree(
         config.repoOwner,
@@ -102,6 +106,7 @@ class CommitService {
           config.branch,
           newCommitSha,
         );
+        onCommitted?.call(config, newCommitSha);
         return CommitApplied(commitSha: newCommitSha, treeBefore: tree);
       } on NonFastForwardException catch (e) {
         // Someone pushed between our read and our write. Loop: re-read the

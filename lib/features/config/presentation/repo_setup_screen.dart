@@ -1018,9 +1018,9 @@ class _RepoSetupScreenState extends ConsumerState<RepoSetupScreen>
           icon: Icons.data_usage_rounded,
           tint: colors.warning,
           message:
-              'This repo is already ${formatBytes(result.repoBytes)} of the '
-              '${formatBytes(MediaPipelineService.repoCeilingBytes)} '
-              'GitHub Pages will publish.',
+              'Current files total ${formatBytes(result.repoBytes)}; the safety budget is '
+              '${formatBytes(MediaPipelineService.repoCeilingBytes)}'
+              '. GitHub Pages limits the published site to 1 GB; this estimate excludes Git history.',
         ),
       );
     }

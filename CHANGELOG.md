@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0 — 2026-10-24
+
+- Drop photo files into the desktop album list or an open album. Photos enter the existing selection and upload review flow.
+- Show Saved → Building → Live for album changes, including deployment failures and a link to the live site.
+- Describe storage as an estimate of current files. Deleting albums reduces the next deployment; Git history is separate.
+
 ## 1.1.4 — 2026-10-10
 
 ### Changed

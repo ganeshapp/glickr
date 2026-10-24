@@ -138,6 +138,7 @@ keychain "Always Allow" for glickr's sign-in item (there is only one).
 
 **What differs on desktop:**
 
+- **Drag and drop** photo files onto the album list or an open album, then review before uploading.
 - **Choose folder** replaces the phone's gallery on both desktops: it fills the grid with that
   folder's JPEG, PNG and WebP photos - and on macOS HEIC, converted with the system's `sips` -
   and the order you pick them still decides the filenames. Desktop uploads photos only; use the
@@ -219,9 +220,10 @@ them for an existing tag, run that workflow by hand from the Actions tab.
 
 - No iOS or Windows build. On macOS and Linux, uploads are photos only.
 - Album repos must be public, so anything you upload is readable by anyone with the link.
-- GitHub Pages publishes at most 1 GB per site. glickr shows a live meter and blocks uploads before
-  you cross it. Note git keeps every version of every photo forever, so deleting an album does not
-  give the space back.
+- GitHub Pages publishes at most 1 GB per site. glickr estimates size from current branch files and
+  pauses uploads at a conservative safety threshold. The built site can differ in size; the meter
+  excludes Git history. Deleting an album reduces current files and the next deployment, but old
+  versions remain in Git history.
 - Photos appear in upload order. There's no manual reordering, because the site sorts by filename.
 - Adding photos to an album with older, differently-named files puts the new ones *first*.
 - Renaming an album changes its web address and breaks old links.
@@ -241,3 +243,15 @@ delete it.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Deployment status
+
+After a successful save, the home screen follows **Saved → Building → Live**.
+Build failures keep the saved changes safe and offer a link to GitHub's build log.
+The last saved revision is remembered across restarts. Checks pause after ten minutes;
+**Check again** resumes them.
+
+For gapp.in, `deployment.json` identifies the deployed commit and Jekyll page URLs,
+so an old page returning HTTP 200 is not mistaken for the new version. Other sites
+can use GitHub Pages deployment status. Tokens need **Actions: Read** and
+**Deployments: Read** for those API checks. A status-check error never retries a save.

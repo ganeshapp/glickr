@@ -26,6 +26,7 @@ Future<void> main() async {
   Hive.registerAdapter(AlbumAdapter());
 
   await Hive.openBox<AppConfig>('app_config');
+  await Hive.openBox<Map>('deployment_state');
   await Hive.openBox<Album>('albums_box');
   await Hive.openBox<Map>('sync_state');
   // Queue records are plain maps with no TypeAdapter on purpose - see

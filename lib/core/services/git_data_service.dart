@@ -63,8 +63,8 @@ class TreeSnapshot {
     this.truncated = false,
   });
 
-  /// Total bytes of every blob - the number that matters, because size limits
-  /// are measured against the whole repository, not the file being served.
+  /// Current branch files only. Excludes Git history and does not measure
+  /// the generated GitHub Pages deployment.
   int get totalBytes =>
       nodes.where((n) => n.isBlob).fold(0, (sum, n) => sum + n.size);
 }

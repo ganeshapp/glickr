@@ -144,6 +144,15 @@ class GalleryNotifier extends _$GalleryNotifier {
     }
   }
 
+  void loadDroppedPhotos(List<AssetEntity> assets) {
+    _restartPaging();
+    state = GalleryState(
+      access: GalleryAccess.granted,
+      assets: assets,
+      hasMore: false,
+    );
+  }
+
   /// A desktop has no usable photo library; a folder the user picks stands in
   /// for one.
   /// Cancelling the dialog keeps whatever is already showing.

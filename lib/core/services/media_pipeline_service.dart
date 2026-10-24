@@ -82,18 +82,12 @@ class MediaPipelineService {
   /// a web page, and it stays well clear of the base64 inflation on the way up.
   static const int maxFileBytes = 40 * 1024 * 1024;
 
-  /// Budget for the WHOLE repository, because that is what the host measures.
-  ///
-  /// GitHub Pages documents a 1 GB published-site limit and the same figure as
-  /// a recommendation for the source repo, so that is the wall. Warn with real
-  /// headroom rather than at the edge: git keeps every version of every photo
-  /// forever, and photos are already-compressed binaries that git cannot delta,
-  /// so the number only ever goes up - deleting an album does not give the
-  /// space back.
-  ///
-  /// Note for a future move to Cloudflare Pages: it has no aggregate size limit
-  /// but caps a deployment at 20,000 files on the free plan (100,000 on paid),
-  /// which for a photo site is the ceiling that would bind instead.
+  /// Conservative upload budget based on the current branch's file sizes.
+  /// This excludes Git history and is not the generated site's size. GitHub
+  /// Pages limits the published site to 1 GB; exclusions and generated pages
+  /// mean the actual deployment may be smaller or larger than this estimate.
+  /// Deleting files reduces this meter and the next deployment, while their
+  /// old versions remain in Git history.
   static const int repoCeilingBytes = 1024 * 1024 * 1024;
   static const int repoWarnBytes = 800 * 1024 * 1024;
   static const int repoBlockBytes = 980 * 1024 * 1024;

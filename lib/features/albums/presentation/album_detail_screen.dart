@@ -13,6 +13,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/album_conventions.dart';
 import '../../../core/utils/external_url.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/desktop_photo_drop_target.dart';
+import '../../../core/widgets/deployment_banner.dart';
 import '../../../core/widgets/remote_media.dart';
 import '../../picker/presentation/media_picker_screen.dart';
 import '../../viewer/presentation/photo_viewer_screen.dart';
@@ -444,7 +446,15 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     final unsaved = _pendingCount;
     final captions = ref.read(pendingCaptionsNotifierProvider.notifier);
 
-    return PopScope(
+    return DesktopPhotoDropTarget(
+      enabled: !busy && !selectionMode,
+      label: 'Drop photos into ${album.folder}',
+      onPhotos: (assets) async {
+        await Navigator.of(context).push(MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) => MediaPickerScreen(targetAlbum: album, droppedAssets: assets)));
+      },
+      child: PopScope(
       canPop: !selectionMode && unsaved == 0,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
@@ -482,6 +492,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
               ),
               slivers: [
                 _header(album),
+                const SliverToBoxAdapter(child: DeploymentBanner()),
                 _description(album, items),
                 if (unsaved > 0)
                   SliverToBoxAdapter(child: _unsavedCaptions(album, unsaved)),
@@ -565,7 +576,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 
   // ---------------------------------------------------------------- header

@@ -15,6 +15,8 @@ import '../../../core/utils/album_conventions.dart';
 import '../../../core/utils/external_url.dart';
 import '../../../core/utils/relative_time.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/deployment_banner.dart';
+import '../../../core/widgets/desktop_photo_drop_target.dart';
 import '../../../core/widgets/glickr_shimmer.dart';
 import '../../../core/widgets/remote_media.dart' show StaggeredFadeIn;
 import '../../config/presentation/repo_setup_screen.dart';
@@ -62,41 +64,53 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
 
     final status = _statusArea(loaded);
 
-    return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        color: scheme.primary,
-        backgroundColor: scheme.surfaceContainerHigh,
-        child: CustomScrollView(
-          // AlwaysScrollable under the bouncing physics so pull-to-refresh
-          // still works on the empty and error states, where the content
-          // does not fill the viewport and a plain scroll view would refuse
-          // the drag outright.
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
+    return DesktopPhotoDropTarget(
+      enabled: !blocked,
+      onPhotos: (assets) async {
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            fullscreenDialog: true,
+            builder: (_) => MediaPickerScreen(droppedAssets: assets),
           ),
-          slivers: [
-            _appBar(),
-            if (status != null) SliverToBoxAdapter(child: status),
-            _content(state, albums),
-          ],
+        );
+      },
+      child: Scaffold(
+        body: RefreshIndicator(
+          onRefresh: _refresh,
+          color: scheme.primary,
+          backgroundColor: scheme.surfaceContainerHigh,
+          child: CustomScrollView(
+            // AlwaysScrollable under the bouncing physics so pull-to-refresh
+            // still works on the empty and error states, where the content
+            // does not fill the viewport and a plain scroll view would refuse
+            // the drag outright.
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            slivers: [
+              _appBar(),
+              const SliverToBoxAdapter(child: DeploymentBanner()),
+              if (status != null) SliverToBoxAdapter(child: status),
+              _content(state, albums),
+            ],
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        // Straight into the picker rather than a "new album" dialog: an empty
-        // album is a dead end, because the website skips folders with no
-        // media. Naming happens inside the upload flow instead.
-        onPressed: blocked ? null : _openPicker,
-        backgroundColor: blocked ? scheme.surfaceContainerHighest : null,
-        foregroundColor: blocked ? scheme.onSurfaceVariant : null,
-        tooltip:
-            blocked
-                ? 'Uploads are paused - your repo is over '
-                    '${formatBytes(MediaPipelineService.repoBlockBytes, decimals: 0)}. '
-                    'Free some space, or move to a host without a size limit.'
-                : 'Add photos',
-        icon: const Icon(Icons.add_photo_alternate_rounded),
-        label: const Text('Add photos'),
+        floatingActionButton: FloatingActionButton.extended(
+          // Straight into the picker rather than a "new album" dialog: an empty
+          // album is a dead end, because the website skips folders with no
+          // media. Naming happens inside the upload flow instead.
+          onPressed: blocked ? null : _openPicker,
+          backgroundColor: blocked ? scheme.surfaceContainerHighest : null,
+          foregroundColor: blocked ? scheme.onSurfaceVariant : null,
+          tooltip:
+              blocked
+                  ? 'Uploads are paused - current files exceed the safety budget of '
+                      '${formatBytes(MediaPipelineService.repoBlockBytes, decimals: 0)}. '
+                      'Delete some items to reduce the next deployment size.'
+                  : 'Add photos',
+          icon: const Icon(Icons.add_photo_alternate_rounded),
+          label: const Text('Add photos'),
+        ),
       ),
     );
   }
@@ -315,8 +329,8 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
       return StatusBanner(
         icon: Icons.storage_rounded,
         message:
-            'Your repo is ${formatBytes(loaded.repoBytes)} of $ceiling. '
-            'New uploads are paused until you free some space.',
+            'Current files: ${formatBytes(loaded.repoBytes)}. Safety budget: $ceiling. '
+            'Uploads are paused. Deleting items reduces the next deployment size; Git history remains.',
         tint: scheme.error,
       );
     }
@@ -325,8 +339,8 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
       return StatusBanner(
         icon: Icons.storage_rounded,
         message:
-            'Your repo is ${formatBytes(loaded.repoBytes)} of $ceiling. '
-            "Past $ceiling your site's CDN stops serving photos.",
+            'Current files: ${formatBytes(loaded.repoBytes)}. Safety budget: $ceiling. '
+            'The published GitHub Pages site has a 1 GB limit; its actual size may differ.',
         tint: warning,
       );
     }

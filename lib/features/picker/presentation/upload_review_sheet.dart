@@ -838,10 +838,10 @@ class _UploadReviewSheetState extends ConsumerState<UploadReviewSheet> {
           icon: Icons.block_rounded,
           tint: context.colorScheme.error,
           message:
-              'Your repo would be $after of $ceiling MB after this. The CDN '
-              'stops serving a repo over $ceiling MB, so every photo on your '
-              "site would stop loading - glickr won't add these. Try a lower "
-              'quality, or delete some items first.',
+              'Estimated current files after upload: $after MB. Uploads are '
+              'paused near the $ceiling MB safety budget. GitHub Pages limits '
+              'the published site to 1 GB; its actual size may differ. '
+              'Try lower quality or delete some items first.',
         ),
       ];
     }
@@ -854,8 +854,9 @@ class _UploadReviewSheetState extends ConsumerState<UploadReviewSheet> {
           icon: Icons.warning_amber_rounded,
           tint: context.appColors.warning,
           message:
-              'Your repo would be $after of $ceiling MB after this. Past '
-              '$ceiling MB the CDN stops serving your site.',
+              'Estimated current files after upload: $after MB, near the '
+              '$ceiling MB safety budget. GitHub Pages limits the published '
+              'site to 1 GB; this estimate excludes Git history.',
         ),
       ];
     }
@@ -865,7 +866,8 @@ class _UploadReviewSheetState extends ConsumerState<UploadReviewSheet> {
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Text(
-          'Your repo would be $after of $ceiling MB after this.',
+          'Estimated current files after upload: $after MB '
+          '(safety budget: $ceiling MB; Git history excluded).',
           style: context.textTheme.bodySmall,
         ),
       ),
